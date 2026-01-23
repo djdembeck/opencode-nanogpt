@@ -2,9 +2,17 @@
 
 ## Setup in 3 Steps
 
-### 1. Run the Setup Script
+### 1. Clone the repo and run the setup script
 
 ```bash
+# SSH (recommended)
+git clone git@github.com:djdembeck/opencode-nanogpt.git
+
+# HTTPS (fallback)
+# git clone https://github.com/djdembeck/opencode-nanogpt.git
+
+cd opencode-nanogpt
+chmod +x setup-nanogpt-opencode.sh update-nanogpt-models.sh
 ./setup-nanogpt-opencode.sh
 ```
 
