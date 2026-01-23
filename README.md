@@ -21,11 +21,17 @@ Automated setup scripts for configuring [OpenCode](https://opencode.ai) with [Na
 
 ## Quick Start
 
-### 1. Run Setup Script
+### 1. Clone the repo and run the setup script
 
 ```bash
-cd /home/djdembeck/projects/github/setup-opencode-nanogpt
-chmod +x setup-nanogpt-opencode.sh
+# SSH (recommended)
+git clone git@github.com:djdembeck/opencode-nanogpt.git
+
+# HTTPS (fallback)
+# git clone https://github.com/djdembeck/opencode-nanogpt.git
+
+cd opencode-nanogpt
+chmod +x setup-nanogpt-opencode.sh update-nanogpt-models.sh
 ./setup-nanogpt-opencode.sh
 ```
 
