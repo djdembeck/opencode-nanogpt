@@ -1,0 +1,716 @@
+#!/bin/bash
+set -euo pipefail
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+BASE_URL="${NANOGPT_BASE_URL:-https://nano-gpt.com}"
+BASE_URL="${BASE_URL%/}"
+API_URL="${BASE_URL}/api"
+API_V1_URL="${BASE_URL}/api/v1"
+MODELS_URL="${BASE_URL}/models/text"
+
+# JSON parsing helper functions
+json_get() {
+    local key="$1"
+
+    if command -v python3 &> /dev/null; then
+        JSON_KEY="$key" python3 - << 'EOF'
+import json
+import os
+import sys
+
+key = os.environ.get("JSON_KEY", "")
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
+
+val = data.get(key, "")
+if isinstance(val, (dict, list)) or val is None:
+    val = ""
+print(val)
+EOF
+        return $?
+    fi
+
+    if command -v python &> /dev/null; then
+        JSON_KEY="$key" python - << 'EOF'
+import json
+import os
+import sys
+
+key = os.environ.get("JSON_KEY", "")
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
+
+val = data.get(key, "")
+if isinstance(val, (dict, list)) or val is None:
+    val = ""
+print(val)
+EOF
+        return $?
+    fi
+
+    if command -v node &> /dev/null; then
+        JSON_KEY="$key" node - << 'EOF'
+const fs = require("fs");
+const key = process.env.JSON_KEY || "";
+let data = {};
+try {
+  const raw = fs.readFileSync(0, "utf8");
+  data = raw ? JSON.parse(raw) : {};
+} catch (_) {
+  data = {};
+}
+let val = data[key];
+if (val === undefined || val === null || typeof val === "object") {
+  val = "";
+}
+process.stdout.write(String(val));
+EOF
+        return $?
+    fi
+
+    return 1
+}
+
+json_get_fallback() {
+    local key="$1"
+    local raw
+
+    raw=$(sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*\"([^\"]*)\".*/\\1/p")
+    if [ -n "$raw" ]; then
+        printf '%s' "$raw"
+        return 0
+    fi
+
+    raw=$(sed -nE "s/.*\"${key}\"[[:space:]]*:[[:space:]]*([0-9]+).*/\\1/p")
+    if [ -n "$raw" ]; then
+        printf '%s' "$raw"
+        return 0
+    fi
+
+    return 1
+}
+
+json_extract() {
+    local body="$1"
+    local key="$2"
+    local val
+
+    val=$(printf '%s' "$body" | json_get "$key" || true)
+    if [ -z "$val" ]; then
+        val=$(printf '%s' "$body" | json_get_fallback "$key" || true)
+    fi
+    printf '%s' "$val"
+}
+
+open_url() {
+    local url="$1"
+    if command -v open &> /dev/null; then
+        open "$url" >/dev/null 2>&1 || true
+    elif command -v xdg-open &> /dev/null; then
+        xdg-open "$url" >/dev/null 2>&1 || true
+    fi
+}
+
+device_login() {
+    local client_name="$1"
+    local start_payload
+    local response http_code body
+
+    start_payload=$(printf '{"client_name":"%s"}' "$client_name")
+    response=$(curl -sS -X POST "${API_URL}/cli-login/start" \
+        -H "Content-Type: application/json" \
+        -d "$start_payload" \
+        -w '\n%{http_code}' || true)
+
+    http_code=$(printf '%s' "$response" | tail -n1)
+    body=$(printf '%s' "$response" | sed '$d')
+
+    if [ -z "$http_code" ]; then
+        echo -e "${RED}✗ Failed to reach ${API_URL}. Check your network.${NC}"
+        return 1
+    fi
+
+    if [ "$http_code" != "200" ]; then
+        echo -e "${RED}✗ Failed to start CLI login (HTTP ${http_code}).${NC}"
+        return 1
+    fi
+
+    local device_code user_code verify_url interval expires_in
+    device_code=$(json_extract "$body" "device_code")
+    user_code=$(json_extract "$body" "user_code")
+    verify_url=$(json_extract "$body" "verification_uri_complete")
+    interval=$(json_extract "$body" "interval")
+    expires_in=$(json_extract "$body" "expires_in")
+
+    if [ -z "$device_code" ] || [ -z "$verify_url" ]; then
+        echo -e "${RED}✗ Unable to parse CLI login response.${NC}"
+        return 1
+    fi
+
+    if [ -z "$interval" ]; then
+        interval="2"
+    fi
+    if [ -z "$expires_in" ]; then
+        expires_in="600"
+    fi
+
+    echo ""
+    echo -e "${BLUE}Authenticate via browser${NC}"
+    echo "Open this URL and approve:"
+    echo -e "  ${YELLOW}${verify_url}${NC}"
+    if [ -n "$user_code" ]; then
+        echo "Code: ${user_code}"
+    fi
+    echo ""
+    open_url "$verify_url"
+
+    local deadline
+    deadline=$(( $(date +%s) + expires_in ))
+
+    while true; do
+        if [ "$(date +%s)" -gt "$deadline" ]; then
+            echo -e "${RED}✗ Login request expired. Please retry.${NC}"
+            return 1
+        fi
+
+        response=$(curl -sS -X POST "${API_URL}/cli-login/poll" \
+            -H "Content-Type: application/json" \
+            -d "{\"device_code\":\"${device_code}\"}" \
+            -w '\n%{http_code}' || true)
+
+        http_code=$(printf '%s' "$response" | tail -n1)
+        body=$(printf '%s' "$response" | sed '$d')
+
+        local status key error_msg
+        status=$(json_extract "$body" "status")
+        error_msg=$(json_extract "$body" "error")
+
+        if [ -z "$http_code" ]; then
+            echo -e "${RED}✗ Failed to reach ${API_URL}. Check your network.${NC}"
+            return 1
+        fi
+
+        if [ "$http_code" = "200" ] && [ "$status" = "approved" ]; then
+            key=$(json_extract "$body" "key")
+            if [ -n "$key" ]; then
+                API_KEY="$key"
+                return 0
+            fi
+            echo -e "${RED}✗ Login approved, but no API key returned.${NC}"
+            return 1
+        fi
+
+        if [ "$http_code" = "202" ] || [ "$status" = "authorization_pending" ]; then
+            sleep "$interval"
+            continue
+        fi
+
+        if [ "$http_code" = "410" ] || [ "$status" = "expired" ]; then
+            echo -e "${RED}✗ Login request expired. Please retry.${NC}"
+            return 1
+        fi
+
+        if [ "$http_code" = "409" ] || [ "$status" = "consumed" ]; then
+            echo -e "${RED}✗ Login request already consumed. Please retry.${NC}"
+            return 1
+        fi
+
+        if [ -n "$error_msg" ]; then
+            echo -e "${RED}✗ Login failed: ${error_msg}.${NC}"
+        else
+            echo -e "${RED}✗ Login failed (HTTP ${http_code}).${NC}"
+        fi
+        return 1
+    done
+}
+
+fetch_nanogpt_models() {
+    local api_key="$1"
+    local response
+    
+    if [ -n "$api_key" ]; then
+        response=$(curl -sS "${API_V1_URL}/models?detailed=true" \
+            -H "Authorization: Bearer ${api_key}" \
+            -w '\n%{http_code}' 2>&1 || true)
+    else
+        response=$(curl -sS "${API_V1_URL}/models?detailed=true" \
+            -w '\n%{http_code}' 2>&1 || true)
+    fi
+    
+    local http_code body
+    http_code=$(printf '%s' "$response" | tail -n1)
+    body=$(printf '%s' "$response" | sed '$d')
+    
+    if [ "$http_code" = "200" ]; then
+        printf '%s' "$body"
+        return 0
+    fi
+    
+    return 1
+}
+
+echo -e "${CYAN}"
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                                                              ║"
+echo "║         NanoGPT + OpenCode Setup (NanoCode Edition)         ║"
+echo "║                                                              ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
+
+# Check if OpenCode is installed
+if ! command -v opencode &> /dev/null; then
+    echo -e "${YELLOW}⚠ OpenCode is not installed.${NC}"
+    echo ""
+    echo "To install OpenCode, run one of:"
+    echo "  curl -fsSL https://opencode.ai/install | bash"
+    echo "  npm i -g opencode-ai@latest"
+    echo "  brew install anomalyco/tap/opencode"
+    echo ""
+    read -p "Do you want to continue with configuration anyway? (y/n): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo -e "${RED}Setup cancelled.${NC}"
+        exit 1
+    fi
+else
+    OPENCODE_VERSION=$(opencode --version 2>/dev/null || echo "unknown")
+    echo -e "${GREEN}✓ OpenCode is installed: ${OPENCODE_VERSION}${NC}"
+fi
+
+# Determine config and auth directories
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+AUTH_DIR="$XDG_DATA_HOME/opencode"
+AUTH_FILE="$AUTH_DIR/auth.json"
+
+CONFIG_DIR="$XDG_CONFIG_HOME/opencode"
+CONFIG_FILE="$CONFIG_DIR/opencode.json"
+
+# Create directories if they don't exist
+if [ ! -d "$AUTH_DIR" ]; then
+    mkdir -p "$AUTH_DIR"
+    echo -e "${GREEN}✓ Created $AUTH_DIR${NC}"
+fi
+
+if [ ! -d "$CONFIG_DIR" ]; then
+    mkdir -p "$CONFIG_DIR"
+    echo -e "${GREEN}✓ Created $CONFIG_DIR${NC}"
+fi
+
+# Prompt for authentication method
+echo ""
+echo -e "${BLUE}Choose authentication method${NC}"
+echo "  1) Browser login (recommended)"
+echo "  2) Paste API key"
+echo ""
+read -p "Select [1-2] (default 1): " -r AUTH_CHOICE
+
+if [ -z "${AUTH_CHOICE:-}" ] || [ "$AUTH_CHOICE" = "1" ]; then
+    if ! device_login "opencode-nanogpt"; then
+        echo ""
+        read -p "Device login failed. Paste an API key instead? (y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${RED}Setup cancelled.${NC}"
+            exit 1
+        fi
+        AUTH_CHOICE="2"
+    fi
+fi
+
+if [ "${AUTH_CHOICE:-}" = "2" ] || [ -z "${API_KEY:-}" ]; then
+    echo ""
+    echo -e "${BLUE}Enter your NanoGPT API key${NC}"
+    echo -e "Get your API key at: ${YELLOW}${BASE_URL}/api${NC}"
+    echo ""
+    read -sp "API Key: " API_KEY
+    echo ""
+
+    if [ -z "$API_KEY" ]; then
+        echo -e "${RED}✗ API key cannot be empty${NC}"
+        exit 1
+    fi
+fi
+
+echo ""
+echo -e "${CYAN}⟳ Fetching models from NanoGPT API...${NC}"
+
+# Fetch models from API
+MODELS_JSON=$(fetch_nanogpt_models "$API_KEY" || true)
+
+if [ -z "$MODELS_JSON" ]; then
+    echo -e "${YELLOW}⚠ Could not fetch models from API, will use defaults${NC}"
+fi
+
+# Update auth.json with the NanoGPT API key
+if command -v python3 &> /dev/null; then
+    NANOGPT_API_KEY_INPUT="$API_KEY" AUTH_FILE_PATH="$AUTH_FILE" python3 << 'EOF'
+import json
+import os
+
+auth_file = os.environ.get("AUTH_FILE_PATH")
+api_key = os.environ.get("NANOGPT_API_KEY_INPUT", "")
+
+# Load existing auth or create new
+try:
+    with open(auth_file, "r") as f:
+        auth = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    auth = {}
+
+# Add NanoGPT credentials
+auth["nanogpt"] = api_key
+
+with open(auth_file, "w") as f:
+    json.dump(auth, f, indent=2)
+EOF
+    echo -e "${GREEN}✓ Updated auth.json with NanoGPT credentials${NC}"
+else
+    # Fallback: create simple auth.json
+    cat > "$AUTH_FILE" << EOF
+{
+  "nanogpt": "${API_KEY}"
+}
+EOF
+    echo -e "${GREEN}✓ Created auth.json${NC}"
+fi
+
+# Secure the auth file
+chmod 600 "$AUTH_FILE" 2>/dev/null || true
+
+# Update or create opencode.json config with NanoGPT provider and all fetched models
+if command -v python3 &> /dev/null; then
+    # Write models JSON to temp file to avoid argument list size limits
+    TEMP_MODELS_FILE=$(mktemp)
+    printf '%s' "$MODELS_JSON" > "$TEMP_MODELS_FILE"
+    
+    NANOGPT_API_V1="$API_V1_URL" \
+    CONFIG_FILE_PATH="$CONFIG_FILE" \
+    MODELS_FILE_PATH="$TEMP_MODELS_FILE" \
+    NANOGPT_API_KEY_FOR_MCP="$API_KEY" \
+    python3 << 'EOF'
+import json
+import os
+import sys
+
+config_file = os.environ.get("CONFIG_FILE_PATH")
+api_v1 = os.environ.get("NANOGPT_API_V1", "https://nano-gpt.com/api/v1")
+models_file = os.environ.get("MODELS_FILE_PATH")
+
+# Read models JSON from temp file to avoid argument list size limits
+models_json_str = ""
+if models_file:
+    try:
+        with open(models_file, "r") as f:
+            models_json_str = f.read()
+    except Exception:
+        pass
+
+# Load existing config or create new
+try:
+    with open(config_file, "r") as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    config = {}
+
+# Ensure provider section exists
+if "provider" not in config:
+    config["provider"] = {}
+
+# Parse fetched models
+models_dict = {}
+if models_json_str:
+    try:
+        models_data = json.loads(models_json_str)
+        if "data" in models_data and isinstance(models_data["data"], list):
+            for model in models_data["data"]:
+                model_id = model.get("id")
+                if not model_id:
+                    continue
+                
+                # Check if this is a reasoning/thinking model
+                is_reasoning = model.get("capabilities", {}).get("reasoning", False)
+                base_url = "https://nano-gpt.com/api/v1thinking" if is_reasoning else "https://nano-gpt.com/api/v1"
+                
+                # Handle None values from API
+                context_length = model.get("context_length") or 128000
+                output_limit = model.get("max_output_tokens") or min(context_length, 128000)
+                
+                model_config = {
+                    "name": model.get("name", model_id),
+                    "limit": {
+                        "context": context_length,
+                        "output": output_limit
+                    },
+                    "api": {
+                        "id": model_id,
+                        "url": base_url,
+                        "npm": "@ai-sdk/openai-compatible"
+                    },
+                    "capabilities": {
+                        "reasoning": is_reasoning,
+                        "temperature": True,
+                        "attachment": False,
+                        "toolcall": True,
+                        "input": {
+                            "text": True,
+                            "audio": False,
+                            "image": model.get("capabilities", {}).get("vision", False),
+                            "video": False,
+                            "pdf": False
+                        }
+                    }
+                }
+                
+                # Add interleaved thinking support for reasoning models
+                if is_reasoning:
+                    model_config["capabilities"]["interleaved"] = {
+                        "field": "reasoning_content"
+                    }
+                
+                if model.get("description"):
+                    model_config["description"] = model["description"]
+                
+                models_dict[model_id] = model_config
+    except Exception as e:
+        print(f"Warning: Could not parse models JSON: {e}", file=sys.stderr)
+
+# If no models fetched, use defaults
+if not models_dict:
+    models_dict = {
+        "zai-org/glm-4.7": {
+            "name": "GLM 4.7",
+            "limit": {
+                "context": 200000,
+                "output": 65535
+            },
+            "api": {
+                "id": "zai-org/glm-4.7",
+                "url": "https://nano-gpt.com/api/v1",
+                "npm": "@ai-sdk/openai-compatible"
+            },
+            "capabilities": {
+                "reasoning": False,
+                "temperature": True,
+                "attachment": False,
+                "toolcall": True
+            }
+        },
+        "zai-org/glm-4.7:thinking": {
+            "name": "GLM 4.7 (Thinking)",
+            "limit": {
+                "context": 200000,
+                "output": 65535
+            },
+            "api": {
+                "id": "zai-org/glm-4.7:thinking",
+                "url": "https://nano-gpt.com/api/v1thinking",
+                "npm": "@ai-sdk/openai-compatible"
+            },
+            "capabilities": {
+                "reasoning": True,
+                "temperature": True,
+                "attachment": False,
+                "toolcall": True,
+                "interleaved": {
+                    "field": "reasoning_content"
+                }
+            }
+        }
+    }
+
+# Add NanoGPT provider configuration
+config["provider"]["nanogpt"] = {
+    "npm": "@ai-sdk/openai-compatible",
+    "name": "NanoGPT",
+    "options": {
+        "baseURL": api_v1
+    },
+    "models": models_dict
+}
+
+# Set default models
+if "model" not in config:
+    config["model"] = "zai-org/glm-4.7"
+
+# Disable OpenCode Zen provider (with Big Pickle and Grok Code Fast models)
+config["disabled_providers"] = ["opencode"]
+
+# Add MCP configuration for built-in nanogpt MCP server
+api_key_input = os.environ.get("NANOGPT_API_KEY_FOR_MCP", "")
+if "mcp" not in config:
+    config["mcp"] = {}
+
+if "nanogpt" not in config["mcp"]:
+    config["mcp"]["nanogpt"] = {
+        "type": "local",
+        "command": ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+        "environment": {
+            "NANOGPT_API_KEY": api_key_input
+        },
+        "enabled": True
+    }
+
+with open(config_file, "w") as f:
+    json.dump(config, f, indent=2)
+EOF
+    
+    # Clean up temp file
+    rm -f "$TEMP_MODELS_FILE"
+    echo -e "${GREEN}✓ Updated opencode.json with NanoGPT provider and models${NC}"
+else
+    # Fallback: create basic config file
+    cat > "$CONFIG_FILE" << EOF
+{
+  "model": "nanogpt/zai-org/glm-4.7",
+  "provider": {
+    "nanogpt": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "NanoGPT",
+      "options": {
+        "baseURL": "${API_V1_URL}"
+      },
+      "models": {
+        "zai-org/glm-4.7": {
+          "name": "GLM 4.7",
+          "limit": {
+            "context": 200000,
+            "output": 65535
+          },
+          "api": {
+            "id": "zai-org/glm-4.7",
+            "url": "https://nano-gpt.com/api/v1",
+            "npm": "@ai-sdk/openai-compatible"
+          }
+        },
+        "zai-org/glm-4.7:thinking": {
+          "name": "GLM 4.7 (Thinking)",
+          "limit": {
+            "context": 200000,
+            "output": 65535
+          },
+          "api": {
+            "id": "zai-org/glm-4.7:thinking",
+            "url": "https://nano-gpt.com/api/v1thinking",
+            "npm": "@ai-sdk/openai-compatible"
+          },
+          "capabilities": {
+            "reasoning": true,
+            "interleaved": {
+              "field": "reasoning_content"
+            }
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "nanogpt": {
+      "type": "local",
+      "command": ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+      "environment": {
+        "NANOGPT_API_KEY": "${API_KEY}"
+      },
+      "enabled": true
+    }
+  }
+}
+EOF
+    echo -e "${GREEN}✓ Created opencode.json${NC}"
+fi
+
+# Secure the config file
+chmod 600 "$CONFIG_FILE" 2>/dev/null || true
+
+echo ""
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                    Setup Complete!                           ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo "Your OpenCode is now configured with NanoGPT!"
+echo ""
+echo -e "Configuration files:"
+echo -e "  Auth:   ${BLUE}$AUTH_FILE${NC}"
+echo -e "  Config: ${BLUE}$CONFIG_FILE${NC}"
+echo ""
+echo -e "Default Models:"
+echo -e "  Primary:  ${YELLOW}zai-org/glm-4.7${NC}"
+echo -e "  Thinking: ${YELLOW}zai-org/glm-4.7:thinking${NC}"
+echo ""
+echo -e "Features enabled:"
+echo -e "  ${GREEN}✓${NC} All models auto-loaded from NanoGPT API"
+echo -e "  ${GREEN}✓${NC} Reasoning models use v1thinking endpoint"
+echo -e "  ${GREEN}✓${NC} Interleaved thinking enabled for reasoning models"
+echo -e "  ${GREEN}✓${NC} Built-in NanoGPT MCP server configured"
+echo ""
+echo -e "MCP Tools available:"
+echo -e "  ${YELLOW}•${NC} nanogpt_chat - Send messages to any NanoGPT model"
+echo -e "  ${YELLOW}•${NC} nanogpt_web_search - Search the web"
+echo -e "  ${YELLOW}•${NC} nanogpt_scrape_urls - Extract content from web pages"
+echo -e "  ${YELLOW}•${NC} nanogpt_youtube_transcribe - Get YouTube transcripts"
+echo -e "  ${YELLOW}•${NC} nanogpt_image_generate - Generate images"
+echo -e "  ${YELLOW}•${NC} nanogpt_get_balance - Check account balance"
+echo ""
+echo -e "To get started:"
+echo -e "  ${BLUE}opencode${NC}"
+echo ""
+echo -e "To switch models:"
+echo -e "  Use the ${YELLOW}/model${NC} command in OpenCode"
+echo ""
+echo -e "To update models from NanoGPT API:"
+echo -e "  Run: ${CYAN}./update-nanogpt-models.sh${NC}"
+echo -e "  Auto-update added to shell init files (.zshrc, .bashrc)"
+echo ""
+echo -e "View all models at: ${BLUE}${MODELS_URL}${NC}"
+echo ""
+
+# Add auto-update to shell initialization files
+echo -e "${BLUE}Setting up auto-update in shell configuration...${NC}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UPDATE_SCRIPT="$SCRIPT_DIR/update-nanogpt-models.sh"
+SOURCE_LINE="source \"$UPDATE_SCRIPT\" 2>/dev/null || true"
+
+# Function to add source line to shell config
+add_to_shell_config() {
+    local config_file="$1"
+    local shell_name="$2"
+    
+    if [ ! -f "$config_file" ]; then
+        return
+    fi
+    
+    # Check if already added
+    if grep -q "update-nanogpt-models.sh" "$config_file" 2>/dev/null; then
+        return
+    fi
+    
+    # Add a comment and the source line
+    cat >> "$config_file" << EOF
+
+# Auto-update NanoGPT models from API (added by setup-nanogpt-opencode.sh)
+$SOURCE_LINE
+EOF
+    echo -e "${GREEN}✓ Added to $shell_name${NC}"
+}
+
+# Add to various shell config files
+add_to_shell_config "$HOME/.zshrc" ".zshrc"
+add_to_shell_config "$HOME/.bashrc" ".bashrc"
+add_to_shell_config "$HOME/.bash_profile" ".bash_profile"
+add_to_shell_config "$HOME/.profile" ".profile"
+add_to_shell_config "$HOME/.config/fish/config.fish" "fish config"
+
+echo ""

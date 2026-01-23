@@ -1,0 +1,173 @@
+#!/bin/bash
+# NanoGPT Models Auto-Update Script
+# This script fetches the latest models from NanoGPT API and updates OpenCode configuration
+
+# Determine config and auth directories
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+
+AUTH_DIR="$XDG_DATA_HOME/opencode"
+AUTH_FILE="$AUTH_DIR/auth.json"
+
+CONFIG_DIR="$XDG_CONFIG_HOME/opencode"
+CONFIG_FILE="$CONFIG_DIR/opencode.json"
+
+# Only run if config exists
+if [ ! -f "$CONFIG_FILE" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# Only run if auth exists
+if [ ! -f "$AUTH_FILE" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+BASE_URL="${NANOGPT_BASE_URL:-https://nano-gpt.com}"
+BASE_URL="${BASE_URL%/}"
+API_V1_URL="${BASE_URL}/api/v1"
+
+# Extract API key from auth.json
+API_KEY=""
+if command -v python3 &> /dev/null; then
+    API_KEY=$(python3 -c "
+import json
+try:
+    with open('$AUTH_FILE', 'r') as f:
+        auth = json.load(f)
+    print(auth.get('nanogpt', ''))
+except:
+    pass
+" 2>/dev/null)
+fi
+
+# If no API key, silently exit
+if [ -z "$API_KEY" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# Fetch models from API (silently)
+fetch_nanogpt_models() {
+    local api_key="$1"
+    curl -sS "${API_V1_URL}/models?detailed=true" \
+        -H "Authorization: Bearer ${api_key}" \
+        2>/dev/null || true
+}
+
+MODELS_JSON=$(fetch_nanogpt_models "$API_KEY")
+
+# If no models fetched, exit silently
+if [ -z "$MODELS_JSON" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+# Update config with new models
+if command -v python3 &> /dev/null; then
+    # Write models JSON to temp file to avoid argument list size limits
+    TEMP_MODELS_FILE=$(mktemp)
+    printf '%s' "$MODELS_JSON" > "$TEMP_MODELS_FILE"
+    
+    NANOGPT_API_V1="$API_V1_URL" \
+    CONFIG_FILE_PATH="$CONFIG_FILE" \
+    MODELS_FILE_PATH="$TEMP_MODELS_FILE" \
+    python3 << 'EOF' 2>/dev/null
+import json
+import os
+
+config_file = os.environ.get("CONFIG_FILE_PATH")
+api_v1 = os.environ.get("NANOGPT_API_V1", "https://nano-gpt.com/api/v1")
+models_file = os.environ.get("MODELS_FILE_PATH")
+
+# Read models JSON from temp file to avoid argument list size limits
+models_json_str = ""
+if models_file:
+    try:
+        with open(models_file, "r") as f:
+            models_json_str = f.read()
+    except Exception:
+        pass
+
+# Load existing config
+try:
+    with open(config_file, "r") as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    exit(0)
+
+# Check if nanogpt provider exists
+if "provider" not in config or "nanogpt" not in config["provider"]:
+    exit(0)
+
+# Parse fetched models
+models_dict = {}
+if models_json_str:
+    try:
+        models_data = json.loads(models_json_str)
+        if "data" in models_data and isinstance(models_data["data"], list):
+            for model in models_data["data"]:
+                model_id = model.get("id")
+                if not model_id:
+                    continue
+                
+                # Check if this is a reasoning/thinking model
+                is_reasoning = model.get("capabilities", {}).get("reasoning", False)
+                base_url = "https://nano-gpt.com/api/v1thinking" if is_reasoning else "https://nano-gpt.com/api/v1"
+                
+                # Handle None values from API
+                context_length = model.get("context_length") or 128000
+                output_limit = model.get("max_output_tokens") or min(context_length, 128000)
+                
+                model_config = {
+                    "name": model.get("name", model_id),
+                    "limit": {
+                        "context": context_length,
+                        "output": output_limit
+                    },
+                    "api": {
+                        "id": model_id,
+                        "url": base_url,
+                        "npm": "@ai-sdk/openai-compatible"
+                    },
+                    "capabilities": {
+                        "reasoning": is_reasoning,
+                        "temperature": True,
+                        "attachment": False,
+                        "toolcall": True,
+                        "input": {
+                            "text": True,
+                            "audio": False,
+                            "image": model.get("capabilities", {}).get("vision", False),
+                            "video": False,
+                            "pdf": False
+                        }
+                    }
+                }
+                
+                # Add interleaved thinking support for reasoning models
+                if is_reasoning:
+                    model_config["capabilities"]["interleaved"] = {
+                        "field": "reasoning_content"
+                    }
+                
+                if model.get("description"):
+                    model_config["description"] = model["description"]
+                
+                models_dict[model_id] = model_config
+    except Exception:
+        exit(0)
+
+# Only update if we have models
+if models_dict:
+    config["provider"]["nanogpt"]["models"] = models_dict
+    
+    # Write back to config file
+    try:
+        with open(config_file, "w") as f:
+            json.dump(config, f, indent=2)
+    except Exception:
+        pass
+
+EOF
+    
+    # Clean up temp file
+    rm -f "$TEMP_MODELS_FILE"
+fi
