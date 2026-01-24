@@ -549,7 +549,9 @@ config["provider"]["nanogpt"] = {
 
 # Set default models
 if "model" not in config:
-    config["model"] = "zai-org/glm-4.7"
+    config["model"] = "zai-org/glm-4.7:thinking"
+if "small_model" not in config:
+    config["small_model"] = "openai/gpt-oss-120b"
 
 # Disable OpenCode Zen provider (with Big Pickle and Grok Code Fast models)
 config["disabled_providers"] = ["opencode"]
@@ -580,7 +582,8 @@ else
     # Fallback: create basic config file
     cat > "$CONFIG_FILE" << EOF
 {
-  "model": "nanogpt/zai-org/glm-4.7",
+  "model": "nanogpt/zai-org/glm-4.7:thinking",
+  "small_model": "nanogpt/openai/gpt-oss-120b",
   "provider": {
     "nanogpt": {
       "npm": "@ai-sdk/openai-compatible",
