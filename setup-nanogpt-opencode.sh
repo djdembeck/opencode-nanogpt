@@ -370,8 +370,11 @@ try:
 except (json.JSONDecodeError, FileNotFoundError):
     auth = {}
 
-# Add NanoGPT credentials
-auth["nanogpt"] = api_key
+# Add NanoGPT credentials with type and key structure
+auth["nanogpt"] = {
+    "type": "api",
+    "key": api_key
+}
 
 with open(auth_file, "w") as f:
     json.dump(auth, f, indent=2)
@@ -381,7 +384,10 @@ else
     # Fallback: create simple auth.json
     cat > "$AUTH_FILE" << EOF
 {
-  "nanogpt": "${API_KEY}"
+  "nanogpt": {
+    "type": "api",
+    "key": "${API_KEY}"
+  }
 }
 EOF
     echo -e "${GREEN}✓ Created auth.json${NC}"
