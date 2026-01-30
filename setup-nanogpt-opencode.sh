@@ -309,13 +309,33 @@ if [ ! -d "$CONFIG_DIR" ]; then
     echo -e "${GREEN}✓ Created $CONFIG_DIR${NC}"
 fi
 
-# Prompt for authentication method
-echo ""
-echo -e "${BLUE}Choose authentication method${NC}"
-echo "  1) Browser login (recommended)"
-echo "  2) Paste API key"
-echo ""
-read -p "Select [1-2] (default 1): " -r AUTH_CHOICE
+API_KEY=""
+if [ -f "$AUTH_FILE" ]; then
+    if command -v python3 &> /dev/null; then
+        API_KEY=$(python3 -c "
+import json
+try:
+    with open('$AUTH_FILE', 'r') as f:
+        auth = json.load(f)
+    key = auth.get('nanogpt', {}).get('key', '') if isinstance(auth.get('nanogpt'), dict) else auth.get('nanogpt', '')
+    print(key)
+except:
+    pass
+" 2>/dev/null)
+    fi
+fi
+
+if [ -n "$API_KEY" ]; then
+    echo ""
+    echo -e "${GREEN}✓ Found existing API key in $AUTH_FILE${NC}"
+    echo -e "${BLUE}Skipping authentication prompt${NC}"
+else
+    echo ""
+    echo -e "${BLUE}Choose authentication method${NC}"
+    echo "  1) Browser login (recommended)"
+    echo "  2) Paste API key"
+    echo ""
+    read -p "Select [1-2] (default 1): " -r AUTH_CHOICE
 
 if [ -z "${AUTH_CHOICE:-}" ] || [ "$AUTH_CHOICE" = "1" ]; then
     if ! device_login "opencode-nanogpt"; then
