@@ -363,6 +363,7 @@ if [ "${AUTH_CHOICE:-}" = "2" ] || [ -z "${API_KEY:-}" ]; then
         exit 1
     fi
 fi
+fi
 
 echo ""
 echo -e "${CYAN}⟳ Fetching models from NanoGPT API...${NC}"
