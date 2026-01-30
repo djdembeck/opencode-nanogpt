@@ -455,39 +455,47 @@ if models_json_str:
                 output_limit = model.get("max_output_tokens") or min(context_length, 128000)
                 
                 model_config = {
+                    "id": model_id,
                     "name": model.get("name", model_id),
                     "limit": {
                         "context": context_length,
                         "output": output_limit
-                    },
-                    "api": {
-                        "id": model_id,
-                        "url": base_url,
-                        "npm": "@ai-sdk/openai-compatible"
-                    },
-                    "capabilities": {
-                        "reasoning": is_reasoning,
-                        "temperature": True,
-                        "attachment": False,
-                        "toolcall": True,
-                        "input": {
-                            "text": True,
-                            "audio": False,
-                            "image": model.get("capabilities", {}).get("vision", False),
-                            "video": False,
-                            "pdf": False
-                        }
                     }
                 }
                 
-                # Add interleaved thinking support for reasoning models
-                if is_reasoning:
-                    model_config["capabilities"]["interleaved"] = {
-                        "field": "reasoning_content"
+                caps = model.get("capabilities", {})
+                if caps.get("reasoning") is not None:
+                    model_config["reasoning"] = caps["reasoning"]
+                
+                model_config["temperature"] = True
+                model_config["tool_call"] = True
+                
+                if caps.get("reasoning"):
+                    model_config["interleaved"] = {"field": "reasoning_content"}
+                
+                input_modalities = ["text"]
+                if caps.get("vision"):
+                    input_modalities.append("image")
+                
+                model_config["modalities"] = {
+                    "input": input_modalities,
+                    "output": ["text"]
+                }
+                
+                pricing = model.get("pricing", {})
+                if pricing.get("prompt") is not None and pricing.get("completion") is not None:
+                    model_config["cost"] = {
+                        "input": pricing["prompt"],
+                        "output": pricing["completion"]
                     }
                 
-                if model.get("description"):
-                    model_config["description"] = model["description"]
+                created = model.get("created")
+                if created:
+                    from datetime import datetime
+                    try:
+                        model_config["release_date"] = datetime.fromtimestamp(created).strftime("%Y-%m-%d")
+                    except:
+                        pass
                 
                 models_dict[model_id] = model_config
     except Exception as e:
@@ -497,42 +505,35 @@ if models_json_str:
 if not models_dict:
     models_dict = {
         "zai-org/glm-4.7": {
+            "id": "zai-org/glm-4.7",
             "name": "GLM 4.7",
             "limit": {
                 "context": 200000,
                 "output": 65535
             },
-            "api": {
-                "id": "zai-org/glm-4.7",
-                "url": "https://nano-gpt.com/api/v1",
-                "npm": "@ai-sdk/openai-compatible"
-            },
-            "capabilities": {
-                "reasoning": False,
-                "temperature": True,
-                "attachment": False,
-                "toolcall": True
+            "temperature": True,
+            "tool_call": True,
+            "modalities": {
+                "input": ["text"],
+                "output": ["text"]
             }
         },
         "zai-org/glm-4.7:thinking": {
+            "id": "zai-org/glm-4.7:thinking",
             "name": "GLM 4.7 (Thinking)",
             "limit": {
                 "context": 200000,
                 "output": 65535
             },
-            "api": {
-                "id": "zai-org/glm-4.7:thinking",
-                "url": "https://nano-gpt.com/api/v1thinking",
-                "npm": "@ai-sdk/openai-compatible"
+            "reasoning": True,
+            "temperature": True,
+            "tool_call": True,
+            "interleaved": {
+                "field": "reasoning_content"
             },
-            "capabilities": {
-                "reasoning": True,
-                "temperature": True,
-                "attachment": False,
-                "toolcall": True,
-                "interleaved": {
-                    "field": "reasoning_content"
-                }
+            "modalities": {
+                "input": ["text"],
+                "output": ["text"]
             }
         }
     }
@@ -593,33 +594,35 @@ else
       },
       "models": {
         "zai-org/glm-4.7": {
+          "id": "zai-org/glm-4.7",
           "name": "GLM 4.7",
           "limit": {
             "context": 200000,
             "output": 65535
           },
-          "api": {
-            "id": "zai-org/glm-4.7",
-            "url": "https://nano-gpt.com/api/v1",
-            "npm": "@ai-sdk/openai-compatible"
+          "temperature": true,
+          "tool_call": true,
+          "modalities": {
+            "input": ["text"],
+            "output": ["text"]
           }
         },
         "zai-org/glm-4.7:thinking": {
+          "id": "zai-org/glm-4.7:thinking",
           "name": "GLM 4.7 (Thinking)",
           "limit": {
             "context": 200000,
             "output": 65535
           },
-          "api": {
-            "id": "zai-org/glm-4.7:thinking",
-            "url": "https://nano-gpt.com/api/v1thinking",
-            "npm": "@ai-sdk/openai-compatible"
+          "reasoning": true,
+          "temperature": true,
+          "tool_call": true,
+          "interleaved": {
+            "field": "reasoning_content"
           },
-          "capabilities": {
-            "reasoning": true,
-            "interleaved": {
-              "field": "reasoning_content"
-            }
+          "modalities": {
+            "input": ["text"],
+            "output": ["text"]
           }
         }
       }
