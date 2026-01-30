@@ -558,9 +558,9 @@ config["provider"]["nanogpt"] = {
 
 # Set default models
 if "model" not in config:
-    config["model"] = "zai-org/glm-4.7:thinking"
+    config["model"] = "nanogpt/zai-org/glm-4.7:thinking"
 if "small_model" not in config:
-    config["small_model"] = "mistralai/ministral-14b-instruct-2512"
+    config["small_model"] = "nanogpt/openai/gpt-oss-120b"
 
 # Disable OpenCode Zen provider (with Big Pickle and Grok Code Fast models)
 config["disabled_providers"] = ["opencode"]
