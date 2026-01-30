@@ -237,27 +237,14 @@ device_login() {
 
 fetch_nanogpt_models() {
     local api_key="$1"
-    local response
-    
     if [ -n "$api_key" ]; then
-        response=$(curl -sS "${API_V1_URL}/models?detailed=true" \
+        curl -sS "${API_V1_URL}/models?detailed=true" \
             -H "Authorization: Bearer ${api_key}" \
-            -w '\n%{http_code}' 2>&1 || true)
+            2>/dev/null || true
     else
-        response=$(curl -sS "${API_V1_URL}/models?detailed=true" \
-            -w '\n%{http_code}' 2>&1 || true)
+        curl -sS "${API_V1_URL}/models?detailed=true" \
+            2>/dev/null || true
     fi
-    
-    local http_code body
-    http_code=$(printf '%s' "$response" | tail -n1)
-    body=$(printf '%s' "$response" | sed '$d')
-    
-    if [ "$http_code" = "200" ]; then
-        printf '%s' "$body"
-        return 0
-    fi
-    
-    return 1
 }
 
 echo -e "${CYAN}"
