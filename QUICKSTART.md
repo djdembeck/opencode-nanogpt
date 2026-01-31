@@ -70,7 +70,7 @@ Models will update automatically when you open a new terminal.
 ## What Makes This Special?
 
 1. **Auto-Discovery**: Models are fetched from NanoGPT API, not hardcoded
-2. **Reasoning Models**: Automatically use `v1thinking` endpoint
+2. **Reasoning Models**: Configured with interleaved thinking support
 3. **Interleaved Thinking**: See model's reasoning process inline
 4. **MCP Built-in**: NanoGPT MCP server ready with tools for web search, scraping, YouTube, images, etc.
 
@@ -97,7 +97,7 @@ No additional setup needed—just ask in natural language!
 - Shows reasoning process
 - More detailed responses
 - Interleaved thinking via `reasoning_content` field
-- Endpoint: `https://nano-gpt.com/api/v1thinking`
+- Uses standard v1 endpoint with reasoning parameters
 
 ## Need Help?
 

@@ -113,16 +113,13 @@ OpenCode uses a provider-based system:
                 },
                 "zai-org/glm-4.7:thinking": {
                     "name": "GLM 4.7 (Thinking)",
-                    "api": {
-                        "id": "zai-org/glm-4.7:thinking",
-                        "url": "https://nano-gpt.com/api/v1thinking",
-                        "npm": "@ai-sdk/openai-compatible"
+                    "reasoning": true,
+                    "interleaved": {
+                        "field": "reasoning_content"
                     },
-                    "capabilities": {
-                        "reasoning": true,
-                        "interleaved": {
-                            "field": "reasoning_content"
-                        }
+                    "limit": {
+                        "context": 200000,
+                        "output": 65535
                     }
                 }
             }

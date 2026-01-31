@@ -6,7 +6,7 @@ Automated setup scripts for configuring [OpenCode](https://opencode.ai) with [Na
 
 -   ✅ **CLI Login** - Easy browser-based authentication
 -   ✅ **Auto Model Loading** - All models automatically fetched from NanoGPT API
--   ✅ **Reasoning Models** - Models with reasoning capabilities use v1thinking endpoint
+-   ✅ **Reasoning Models** - Models with reasoning capabilities configured with interleaved thinking
 -   ✅ **Interleaved Thinking** - Reasoning models support interleaved thinking with `reasoning_content` field
 -   ✅ **Built-in MCP** - NanoGPT MCP server pre-configured
 -   ✅ **Auto Updates** - Script to keep models up-to-date (can be added to .zshrc)
@@ -129,7 +129,7 @@ After setup, you'll have access to all NanoGPT models, with these defaults:
 
 Models that support reasoning (like `zai-org/glm-4.7:thinking`) are automatically configured with:
 
--   **API Endpoint**: `https://nano-gpt.com/api/v1thinking`
+-   **API Endpoint**: `https://nano-gpt.com/api/v1` (standard endpoint)
 -   **Interleaved Thinking**: Enabled via `reasoning_content` field
 -   **Capabilities**: Marked with `reasoning: true`
 
@@ -353,7 +353,7 @@ setup-opencode-nanogpt/
 This setup is based on the NanoCode fork with these key features:
 
 1. **Automatic Model Discovery**: Models are fetched from NanoGPT API instead of hardcoded
-2. **Reasoning Support**: Models with reasoning capabilities automatically use v1thinking endpoint
+2. **Reasoning Support**: Models with reasoning capabilities configured with interleaved thinking
 3. **Interleaved Thinking**: Reasoning models show thinking process inline
 4. **Built-in MCP**: NanoGPT MCP server is pre-configured
 5. **Auto-Updates**: Includes script to keep models current
