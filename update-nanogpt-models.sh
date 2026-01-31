@@ -93,6 +93,9 @@ try:
 except (json.JSONDecodeError, FileNotFoundError):
     exit(0)
 
+# Ensure schema reference exists
+config["$schema"] = "https://opencode.ai/config.json"
+
 # Check if nanogpt provider exists
 if "provider" not in config or "nanogpt" not in config["provider"]:
     exit(0)
@@ -108,14 +111,10 @@ if models_json_str:
                 if not model_id:
                     continue
                 
-                # Check if this is a reasoning/thinking model
-                is_reasoning = model.get("capabilities", {}).get("reasoning", False)
-                base_url = "https://nano-gpt.com/api/v1thinking" if is_reasoning else "https://nano-gpt.com/api/v1"
-                
                 # Handle None values from API
                 context_length = model.get("context_length") or 128000
                 output_limit = model.get("max_output_tokens") or min(context_length, 128000)
-                
+
                 model_config = {
                     "id": model_id,
                     "name": model.get("name", model_id),
@@ -124,14 +123,14 @@ if models_json_str:
                         "output": output_limit
                     }
                 }
-                
+
                 caps = model.get("capabilities", {})
                 if caps.get("reasoning") is not None:
                     model_config["reasoning"] = caps["reasoning"]
-                
+
                 model_config["temperature"] = True
                 model_config["tool_call"] = True
-                
+
                 if caps.get("reasoning"):
                     model_config["interleaved"] = {"field": "reasoning_content"}
                 

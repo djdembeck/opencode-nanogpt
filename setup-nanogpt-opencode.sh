@@ -439,6 +439,9 @@ try:
 except (json.JSONDecodeError, FileNotFoundError):
     config = {}
 
+# Add schema reference for validation
+config["$schema"] = "https://opencode.ai/config.json"
+
 # Ensure provider section exists
 if "provider" not in config:
     config["provider"] = {}
@@ -454,14 +457,10 @@ if models_json_str:
                 if not model_id:
                     continue
                 
-                # Check if this is a reasoning/thinking model
-                is_reasoning = model.get("capabilities", {}).get("reasoning", False)
-                base_url = "https://nano-gpt.com/api/v1thinking" if is_reasoning else "https://nano-gpt.com/api/v1"
-                
                 # Handle None values from API
                 context_length = model.get("context_length") or 128000
                 output_limit = model.get("max_output_tokens") or min(context_length, 128000)
-                
+
                 model_config = {
                     "id": model_id,
                     "name": model.get("name", model_id),
@@ -470,14 +469,14 @@ if models_json_str:
                         "output": output_limit
                     }
                 }
-                
+
                 caps = model.get("capabilities", {})
                 if caps.get("reasoning") is not None:
                     model_config["reasoning"] = caps["reasoning"]
-                
+
                 model_config["temperature"] = True
                 model_config["tool_call"] = True
-                
+
                 if caps.get("reasoning"):
                     model_config["interleaved"] = {"field": "reasoning_content"}
                 
@@ -591,6 +590,7 @@ else
     # Fallback: create basic config file
     cat > "$CONFIG_FILE" << EOF
 {
+  "$schema": "https://opencode.ai/config.json",
   "model": "nanogpt/zai-org/glm-4.7:thinking",
   "small_model": "nanogpt/mistralai/ministral-14b-instruct-2512",
   "provider": {
@@ -671,7 +671,7 @@ echo -e "  Thinking: ${YELLOW}zai-org/glm-4.7:thinking${NC}"
 echo ""
 echo -e "Features enabled:"
 echo -e "  ${GREEN}✓${NC} All models auto-loaded from NanoGPT API"
-echo -e "  ${GREEN}✓${NC} Reasoning models use v1thinking endpoint"
+echo -e "  ${GREEN}✓${NC} Reasoning models configured with interleaved thinking"
 echo -e "  ${GREEN}✓${NC} Interleaved thinking enabled for reasoning models"
 echo -e "  ${GREEN}✓${NC} Built-in NanoGPT MCP server configured"
 echo ""
