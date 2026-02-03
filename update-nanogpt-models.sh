@@ -10,10 +10,13 @@ AUTH_DIR="$XDG_DATA_HOME/opencode"
 AUTH_FILE="$AUTH_DIR/auth.json"
 
 CONFIG_DIR="$XDG_CONFIG_HOME/opencode"
-CONFIG_FILE="$CONFIG_DIR/opencode.json"
 
-# Only run if config exists
-if [ ! -f "$CONFIG_FILE" ]; then
+# Detect config file (prefer .jsonc over .json)
+if [ -f "$CONFIG_DIR/opencode.jsonc" ]; then
+    CONFIG_FILE="$CONFIG_DIR/opencode.jsonc"
+elif [ -f "$CONFIG_DIR/opencode.json" ]; then
+    CONFIG_FILE="$CONFIG_DIR/opencode.json"
+else
     return 0 2>/dev/null || exit 0
 fi
 
@@ -34,7 +37,11 @@ import json
 try:
     with open('$AUTH_FILE', 'r') as f:
         auth = json.load(f)
-    print(auth.get('nanogpt', ''))
+    nanogpt = auth.get('nanogpt', '')
+    if isinstance(nanogpt, dict):
+        print(nanogpt.get('key', ''))
+    else:
+        print(nanogpt)
 except:
     pass
 " 2>/dev/null)
@@ -86,10 +93,18 @@ if models_file:
     except Exception:
         pass
 
-# Load existing config
+# Load existing config (handle JSONC with comments and trailing commas)
 try:
     with open(config_file, "r") as f:
-        config = json.load(f)
+        content = f.read()
+    import re
+    # Strip single-line comments (// ...) but not URLs like http://
+    content = re.sub(r'(?<!:)(?<!/)(?<!)//.*$', '', content, flags=re.MULTILINE)
+    # Strip multi-line comments (/* ... */)
+    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    # Strip trailing commas before } or ]
+    content = re.sub(r',(\s*[}\]])', r'\1', content)
+    config = json.loads(content)
 except (json.JSONDecodeError, FileNotFoundError):
     exit(0)
 

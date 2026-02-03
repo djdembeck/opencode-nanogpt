@@ -283,7 +283,15 @@ AUTH_DIR="$XDG_DATA_HOME/opencode"
 AUTH_FILE="$AUTH_DIR/auth.json"
 
 CONFIG_DIR="$XDG_CONFIG_HOME/opencode"
-CONFIG_FILE="$CONFIG_DIR/opencode.json"
+
+# Detect existing config file (prefer .jsonc over .json), or default to .json for new files
+if [ -f "$CONFIG_DIR/opencode.jsonc" ]; then
+    CONFIG_FILE="$CONFIG_DIR/opencode.jsonc"
+elif [ -f "$CONFIG_DIR/opencode.json" ]; then
+    CONFIG_FILE="$CONFIG_DIR/opencode.json"
+else
+    CONFIG_FILE="$CONFIG_DIR/opencode.json"
+fi
 
 # Create directories if they don't exist
 if [ ! -d "$AUTH_DIR" ]; then
@@ -432,10 +440,18 @@ if models_file:
     except Exception:
         pass
 
-# Load existing config or create new
+# Load existing config (handle JSONC with comments and trailing commas) or create new
 try:
     with open(config_file, "r") as f:
-        config = json.load(f)
+        content = f.read()
+    import re
+    # Strip single-line comments (// ...) but not URLs like http://
+    content = re.sub(r'(?<!:)(?<!/)(?<!)//.*$', '', content, flags=re.MULTILINE)
+    # Strip multi-line comments (/* ... */)
+    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    # Strip trailing commas before } or ]
+    content = re.sub(r',(\s*[}\]])', r'\1', content)
+    config = json.loads(content)
 except (json.JSONDecodeError, FileNotFoundError):
     config = {}
 
