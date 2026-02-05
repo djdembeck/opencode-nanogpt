@@ -311,13 +311,9 @@ brew install anomalyco/tap/opencode
 
 2.  Install Bun if missing:
 
-        ```bash
-        # Install Bun
-
+    ```bash
+    # Install Bun
     curl -fsSL https://bun.sh/install | bash
-
-    ```
-
     ```
 
 3.  Check MCP server status in OpenCode logs

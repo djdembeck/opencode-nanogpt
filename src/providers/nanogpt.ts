@@ -42,7 +42,7 @@ export interface NanogptProvider {
  * Configures the MCP (Model Context Protocol) environment for NanoGPT.
  *
  * IMPORTANT: The actual API key is NOT stored in the config file.
- * Instead, the {env:NANOGPT_MCP_API_KEY} interpolation syntax is used,
+ * Instead, the {env:NANOGPT_API_KEY} interpolation syntax is used,
  * which will be resolved at runtime from the environment variable.
  *
  * @param configManager - ConfigManager instance for surgical config edits
@@ -51,12 +51,13 @@ export interface NanogptProvider {
 export async function configureMcpEnvironment(
   configManager: ConfigManager,
   filePath: string,
+  apiKey: string,
 ): Promise<void> {
   const mcpConfig: McpServerConfig = {
     type: "local",
-    command: ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+    command: ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
     environment: {
-      NANOGPT_API_KEY: "{env:NANOGPT_MCP_API_KEY}",
+      NANOGPT_API_KEY: "{env:NANOGPT_API_KEY}",
     },
     enabled: true,
   };
@@ -124,7 +125,7 @@ export async function ensureNanogptProvider(
  * @param filePath - Path to the OpenCode configuration file
  */
 export async function removeNanogptProvider(
-  _configManager: ConfigManager,
+  configManager: ConfigManager,
   filePath: string,
 ): Promise<void> {
   const content = await readFile(filePath, "utf-8");

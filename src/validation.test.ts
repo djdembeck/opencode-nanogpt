@@ -24,15 +24,17 @@ describe("Validation", () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = join(tmpdir(), `validation-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    testDir = join(
+      tmpdir(),
+      `validation-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    );
     await mkdir(testDir, { recursive: true });
   });
 
   afterEach(async () => {
     try {
       await rmdir(testDir, { recursive: true });
-    } catch {
-    }
+    } catch {}
   });
 
   describe("ModelConfigSchema", () => {
@@ -206,7 +208,9 @@ describe("Validation", () => {
         models: {},
       };
 
-      expect(() => NanogptProviderSchema.parse(invalidProvider)).toThrow(z.ZodError);
+      expect(() => NanogptProviderSchema.parse(invalidProvider)).toThrow(
+        z.ZodError,
+      );
     });
 
     test("should throw for missing npm field", () => {
@@ -218,7 +222,9 @@ describe("Validation", () => {
         models: {},
       };
 
-      expect(() => NanogptProviderSchema.parse(invalidProvider)).toThrow(z.ZodError);
+      expect(() => NanogptProviderSchema.parse(invalidProvider)).toThrow(
+        z.ZodError,
+      );
     });
   });
 
@@ -226,17 +232,24 @@ describe("Validation", () => {
     test("should validate valid MCP server config", () => {
       const validMcp = {
         type: "local" as const,
-        command: ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+        command: ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
         environment: {
-          NANOGPT_API_KEY: "{env:NANOGPT_MCP_API_KEY}",
+          NANOGPT_API_KEY: "{env:NANOGPT_API_KEY}",
         },
         enabled: true,
       };
 
       const result = McpServerSchema.parse(validMcp);
       expect(result.type).toBe("local");
-      expect(result.command).toEqual(["npx", "@nanogpt/mcp@latest", "--scope", "user"]);
-      expect(result.environment.NANOGPT_API_KEY).toBe("{env:NANOGPT_MCP_API_KEY}");
+      expect(result.command).toEqual([
+        "npx",
+        "@nanogpt/mcp@latest",
+        "--scope",
+        "user",
+      ]);
+      expect(result.environment.NANOGPT_API_KEY).toBe(
+        "{env:NANOGPT_MCP_API_KEY}",
+      );
     });
 
     test("should throw for non-local type", () => {
@@ -311,9 +324,9 @@ describe("Validation", () => {
         mcp: {
           nanogpt: {
             type: "local",
-            command: ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+            command: ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
             environment: {
-              NANOGPT_API_KEY: "{env:NANOGPT_MCP_API_KEY}",
+              NANOGPT_API_KEY: "{env:NANOGPT_API_KEY}",
             },
             enabled: true,
           },
@@ -388,7 +401,9 @@ describe("Validation", () => {
         provider: {},
       };
 
-      expect(() => OpenCodeConfigSchema.parse(invalidConfig)).toThrow(z.ZodError);
+      expect(() => OpenCodeConfigSchema.parse(invalidConfig)).toThrow(
+        z.ZodError,
+      );
     });
   });
 
@@ -439,7 +454,9 @@ describe("Validation", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(z.ZodError);
         if (error instanceof z.ZodError) {
-          expect(error.issues[0].message.toLowerCase()).toContain("invalid url");
+          expect(error.issues[0].message.toLowerCase()).toContain(
+            "invalid url",
+          );
         }
       }
     });
@@ -528,22 +545,32 @@ describe("Validation", () => {
         },
       };
 
-      await writeFile(filePath, JSON.stringify(invalidConfig, null, 2), "utf-8");
+      await writeFile(
+        filePath,
+        JSON.stringify(invalidConfig, null, 2),
+        "utf-8",
+      );
 
-      await expect(validateBeforeWrite(configManager, filePath)).rejects.toThrow();
+      await expect(
+        validateBeforeWrite(configManager, filePath),
+      ).rejects.toThrow();
     });
 
     test("should throw for malformed JSON file", async () => {
       const filePath = join(testDir, "malformed.json");
       await writeFile(filePath, "{ invalid json", "utf-8");
 
-      await expect(validateBeforeWrite(configManager, filePath)).rejects.toThrow(/JSONC parse error/);
+      await expect(
+        validateBeforeWrite(configManager, filePath),
+      ).rejects.toThrow(/JSONC parse error/);
     });
 
     test("should throw for non-existent file", async () => {
       const filePath = join(testDir, "nonexistent.json");
 
-      await expect(validateBeforeWrite(configManager, filePath)).rejects.toThrow();
+      await expect(
+        validateBeforeWrite(configManager, filePath),
+      ).rejects.toThrow();
     });
 
     test("should validate JSONC file with comments", async () => {
@@ -600,9 +627,15 @@ describe("Validation", () => {
         },
       };
 
-      await writeFile(filePath, JSON.stringify(invalidConfig, null, 2), "utf-8");
+      await writeFile(
+        filePath,
+        JSON.stringify(invalidConfig, null, 2),
+        "utf-8",
+      );
 
-      await expect(validateAfterWrite(configManager, filePath)).rejects.toThrow(z.ZodError);
+      await expect(validateAfterWrite(configManager, filePath)).rejects.toThrow(
+        z.ZodError,
+      );
     });
   });
 
@@ -725,9 +758,9 @@ describe("Validation", () => {
         mcp: {
           nanogpt: {
             type: "local",
-            command: ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+            command: ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
             environment: {
-              NANOGPT_API_KEY: "{env:NANOGPT_MCP_API_KEY}",
+              NANOGPT_API_KEY: "{env:NANOGPT_API_KEY}",
             },
             enabled: true,
           },
@@ -742,7 +775,9 @@ describe("Validation", () => {
       };
 
       const result = validateConfig(complexConfig);
-      expect(result.provider.nanogpt?.models["zai-org/glm-4.7:thinking"].reasoning).toBe(true);
+      expect(
+        result.provider.nanogpt?.models["zai-org/glm-4.7:thinking"].reasoning,
+      ).toBe(true);
       expect(result.provider.openai).toEqual({ apiKey: "test-key" });
       expect(result.mcp?.other.enabled).toBe(false);
       expect(result.customField).toBe("value");

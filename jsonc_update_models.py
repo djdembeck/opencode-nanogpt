@@ -1,197 +1,261 @@
 #!/usr/bin/env python3
 """
-Update models in a JSONC file while preserving comments.
+JSONC Update Models - Surgical editing for OpenCode configuration files.
+
+This module provides functions to locate and update the models section
+within a provider.nanogpt structure in JSONC (JSON with Comments) files.
 """
 
-import json
-import sys
+import re
+from typing import Optional, Tuple
 
-def find_string_end(content, start_pos):
-    """Find the end of a JSON string starting at start_pos (which should be at a quote)."""
-    i = start_pos + 1
-    while i < len(content):
-        if content[i] == '\\':
-            i += 2
-        elif content[i] == '"':
-            return i
-        else:
-            i += 1
-    return -1
 
-def skip_comment_or_string(content, i):
+def skip_comment_or_string(content: str, i: int) -> int:
     """
-    Skip past JSONC comments and strings starting at position i.
-    Returns the new position after the comment/string, or -1 if unterminated.
-    If i is not at a comment or string start, returns i unchanged.
+    Skip over comments and strings to avoid false matches.
+
+    Args:
+        content: The content string to process
+        i: Current index position
+
+    Returns:
+        New index position after skipping comment/string
     """
     if i >= len(content):
         return i
 
-    char = content[i]
+    if content[i:i + 2] == '//':
+        end = content.find('\n', i)
+        return len(content) if end == -1 else end + 1
 
-    if char == '/' and i + 1 < len(content):
-        if content[i + 1] == '/':
-            # Line comment: skip until newline or EOF
-            i += 2
-            while i < len(content) and content[i] != '\n':
+    if content[i:i + 2] == '/*':
+        end = content.find('*/', i + 2)
+        return len(content) if end == -1 else end + 2
+
+    if content[i] == '"':
+        i += 1
+        while i < len(content):
+            if content[i] == '\\' and i + 1 < len(content):
+                i += 2
+            elif content[i] == '"':
+                return i + 1
+            else:
                 i += 1
-            return i
-        elif content[i + 1] == '*':
-            # Block comment: skip until */
-            i += 2
-            while i < len(content) - 1:
-                if content[i] == '*' and content[i + 1] == '/':
-                    return i + 2
+        return i
+
+    if content[i] == "'":
+        i += 1
+        while i < len(content):
+            if content[i] == '\\' and i + 1 < len(content):
+                i += 2
+            elif content[i] == "'":
+                return i + 1
+            else:
                 i += 1
-            # Block comment not terminated
-            return -1
-    elif char == '"':
-        # Skip string
-        string_end = find_string_end(content, i)
-        if string_end == -1:
-            return -1
-        return string_end + 1
+        return i
 
     return i
 
-def find_models_section(content):
+
+def find_key_position(content: str, key: str, start: int = 0) -> int:
     """
-    Find the models section within nanogpt provider.
-    Returns (start_pos, end_pos) where start_pos is at the opening brace of models value,
-    and end_pos is after the closing brace.
+    Find the position of a JSON key (e.g., "provider") in content.
+    Skips comments and strings to avoid false matches.
+
+    Args:
+        content: The content string to search
+        key: The key to find (without quotes)
+        start: Starting position for search
+
+    Returns:
+        Index position of the key, or -1 if not found
     """
-    # Find "nanogpt"
-    nanogpt_pos = content.find('"nanogpt"')
+    key_pattern = f'"{key}"'
+    i = start
+
+    while i < len(content):
+        new_i = skip_comment_or_string(content, i)
+        if new_i != i:
+            i = new_i
+            continue
+
+        if content[i:i + len(key_pattern)] == key_pattern:
+            return i
+
+        i += 1
+
+    return -1
+
+
+def find_object_start(content: str, key_pos: int) -> int:
+    """
+    Find the opening brace of an object after a key position.
+
+    Args:
+        content: The content string
+        key_pos: Position of the key
+
+    Returns:
+        Position of the opening brace '{', or -1 if not found
+    """
+    i = key_pos
+
+    while i < len(content):
+        new_i = skip_comment_or_string(content, i)
+        if new_i != i:
+            i = new_i
+            continue
+
+        if content[i] == '{':
+            return i
+        if content[i] == '[':
+            return -1
+
+        i += 1
+
+    return -1
+
+
+def find_object_end(content: str, start: int) -> int:
+    """
+    Find the matching closing brace for an opening brace.
+    Handles nested objects.
+
+    Args:
+        content: The content string
+        start: Position of the opening brace
+
+    Returns:
+        Position of the matching closing brace '}'
+    """
+    brace_count = 1
+    i = start + 1
+
+    while i < len(content) and brace_count > 0:
+        new_i = skip_comment_or_string(content, i)
+        if new_i != i:
+            i = new_i
+            continue
+
+        if content[i] == '{':
+            brace_count += 1
+        elif content[i] == '}':
+            brace_count -= 1
+            if brace_count == 0:
+                return i
+
+        i += 1
+
+    return i
+
+
+def find_models_section(content: str) -> Optional[Tuple[int, int]]:
+    """
+    Find the models section within provider.nanogpt in JSONC content.
+
+    This function locates the "provider" object first, then searches for
+    a "nanogpt" key inside that provider object, and finally locates the
+    "models" key inside the nanogpt object.
+
+    Args:
+        content: The JSONC content to search
+
+    Returns:
+        Tuple of (models_start, models_end) positions, or None if not found
+    """
+    provider_pos = find_key_position(content, "provider")
+    if provider_pos == -1:
+        return None
+
+    provider_object_start = find_object_start(content, provider_pos)
+    if provider_object_start == -1:
+        return None
+
+    nanogpt_pos = find_key_position(content, "nanogpt", provider_object_start + 1)
     if nanogpt_pos == -1:
         return None
-    
-    # Find the opening brace after "nanogpt":
-    i = nanogpt_pos + len('"nanogpt"')
-    while i < len(content) and content[i] not in '{':
-        i += 1
-    if i >= len(content):
+
+    provider_object_end = find_object_end(content, provider_object_start)
+    if nanogpt_pos >= provider_object_end:
         return None
-    
-    # Now we're at the opening brace of nanogpt object
-    # We need to find "models" within this object
 
-    # Search for "models" within nanogpt's braces
-    brace_count = 1
-    i += 1
-    while i < len(content) and brace_count > 0:
-        char = content[i]
+    nanogpt_object_start = find_object_start(content, nanogpt_pos)
+    if nanogpt_object_start == -1:
+        return None
 
-        # Skip JSONC comments and strings
-        if char in '/"':
-            new_i = skip_comment_or_string(content, i)
-            if new_i == -1:
-                return None
-            if new_i != i:
-                # Check if we just skipped the "models" string
-                if char == '"' and content[i:new_i] == '"models"':
-                    string_end = new_i - 1
-                    # Found "models", now find the colon and opening brace
-                    j = string_end + 1
-                    while j < len(content) and content[j] in ' \t\n':
-                        j += 1
-                    if j < len(content) and content[j] == ':':
-                        j += 1
-                        while j < len(content) and content[j] in ' \t\n':
-                            j += 1
-                        if j < len(content) and content[j] == '{':
-                            # Found it! Now find the end of this object
-                            models_start = j
-                            models_brace_count = 1
-                            j += 1
-                            while j < len(content) and models_brace_count > 0:
-                                if content[j] in '/"':
-                                    new_j = skip_comment_or_string(content, j)
-                                    if new_j == -1:
-                                        return None
-                                    if new_j != j:
-                                        j = new_j
-                                        continue
-                                if content[j] == '{':
-                                    models_brace_count += 1
-                                elif content[j] == '}':
-                                    models_brace_count -= 1
-                                    if models_brace_count == 0:
-                                        models_end = j + 1
-                                        return (models_start, models_end)
-                                j += 1
-                i = new_i
-                continue
+    models_pos = find_key_position(content, "models", nanogpt_object_start + 1)
+    if models_pos == -1:
+        return None
 
-        if char == '{':
-            brace_count += 1
-        elif char == '}':
-            brace_count -= 1
-        i += 1
+    nanogpt_object_end = find_object_end(content, nanogpt_object_start)
+    if models_pos >= nanogpt_object_end:
+        return None
 
-    return None
+    models_object_start = find_object_start(content, models_pos)
+    if models_object_start == -1:
+        return None
 
-def update_models_jsonc(config_file, models_dict):
-    """Update models section in JSONC file while preserving comments."""
-    
-    with open(config_file, 'r', encoding='utf-8') as f:
-        content = f.read()
-    
+    models_object_end = find_object_end(content, models_object_start)
+
+    return (models_object_start, models_object_end)
+
+
+def update_models_section(content: str, new_models: str) -> str:
+    """
+    Replace the models section with new content.
+
+    Args:
+        content: Original JSONC content
+        new_models: New models JSON content (should be a valid JSON object)
+
+    Returns:
+        Updated content with new models section
+    """
     result = find_models_section(content)
-    if not result:
-        print("Could not find models section")
-        return False
-    
+    if result is None:
+        raise ValueError("Could not find models section in provider.nanogpt")
+
     models_start, models_end = result
-    
-    # Build replacement JSON
-    models_json = json.dumps(models_dict, indent=2)
-    # Indent to match the file (6 spaces for inside nanogpt)
-    models_json_indented = "\n".join("      " + line for line in models_json.split("\n"))
-    
-    # The models_start position is at the opening brace
-    # We want to keep everything up to and including "models": 
-    # and replace just the { ... } part
-    
-    # Find where "models": starts
-    models_key_pos = content.rfind('"models"', 0, models_start)
-    if models_key_pos == -1:
-        print("Could not find models key")
-        return False
-    
-    # Find the colon after "models"
-    colon_pos = models_key_pos + len('"models"')
-    while colon_pos < models_start and content[colon_pos] in ' \t\n':
-        colon_pos += 1
-    if colon_pos >= models_start or content[colon_pos] != ':':
-        print("Could not find colon after models")
-        return False
-    
-    prefix = content[:colon_pos + 1].rstrip() + " "
-    suffix = content[models_end:]
-    new_content = prefix + models_json_indented.lstrip() + suffix
-    
-    if new_content != content:
-        with open(config_file, 'w', encoding='utf-8') as f:
-            f.write(new_content)
-        print(f"Updated {config_file}")
+    return content[:models_start + 1] + new_models + content[models_end:]
+
+
+if __name__ == "__main__":
+    example_config = '''
+{
+  "model": "zai-org/glm-4.7",
+  "disabled_providers": ["opencode"],
+  "provider": {
+    "nanogpt": {
+      "name": "NanoGPT",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://nano-gpt.com/api/v1"
+      },
+      "models": {
+        "zai-org/glm-4.7": {
+          "name": "GLM 4.7",
+          "limit": {
+            "context": 200000,
+            "output": 65535
+          }
+        }
+      }
+    }
+  },
+  "mcp": {
+    "nanogpt": {
+      "type": "local",
+      "command": ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
+      "enabled": true
+    }
+  }
+}
+'''
+
+    result = find_models_section(example_config)
+    if result:
+        start, end = result
+        print(f"Found models section at positions {start} to {end}")
+        print(f"Content: {example_config[start:end + 1]}")
     else:
-        print("No changes needed")
-    
-    return True
-
-if __name__ == '__main__':
-    if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <config_file> <models_json>")
-        sys.exit(1)
-    
-    config_file = sys.argv[1]
-    models_json_str = sys.argv[2]
-
-    try:
-        models_dict = json.loads(models_json_str)
-    except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON provided for models: {e}")
-        sys.exit(1)
-
-    success = update_models_jsonc(config_file, models_dict)
-    sys.exit(0 if success else 1)
+        print("Models section not found")

@@ -32,19 +32,6 @@ export class BackupManager {
   }
 
   /**
-   * Restores a file from a specific named backup.
-   * @param filePath - Path to the file to restore
-   * @param backupName - Name of the backup file (relative to filePath directory)
-   */
-  async restoreFromSpecificBackup(
-    filePath: string,
-    backupName: string,
-  ): Promise<void> {
-    const backupPath = join(dirname(filePath), backupName);
-    await copyFile(backupPath, filePath);
-  }
-
-  /**
    * Lists all backup files for a given file path.
    * @param filePath - Base file path to search for backups
    * @returns Array of backup file names (not full paths)
@@ -85,5 +72,57 @@ export class BackupManager {
         ),
       );
     }
+  }
+
+  /**
+   * Restores a file from a specific backup file.
+   * Validates and sanitizes backupName to prevent path traversal attacks.
+   * @param filePath - Path to the file to restore
+   * @param backupName - Name of the backup file (not full path)
+   * @throws Error if backupName contains path traversal attempts
+   */
+  async restoreFromSpecificBackup(
+    filePath: string,
+    backupName: string,
+  ): Promise<void> {
+    // Sanitize backupName to prevent path traversal
+    const sanitizedName = basename(backupName);
+
+    // Validate that the sanitized name matches the original (no traversal attempts)
+    if (sanitizedName !== backupName) {
+      throw new Error(
+        `Invalid backup name: ${backupName}. Path separators and traversal sequences are not allowed.`,
+      );
+    }
+
+    // Additional validation: ensure no '..' or path separators
+    if (
+      backupName.includes("..") ||
+      backupName.includes("/") ||
+      backupName.includes("\\")
+    ) {
+      throw new Error(
+        `Invalid backup name: ${backupName}. Path traversal is not allowed.`,
+      );
+    }
+
+    // Compute the backup path
+    const dir = dirname(filePath);
+    const backupPath = join(dir, sanitizedName);
+
+    // Verify the resolved backupPath starts with the intended directory
+    const resolvedBackupPath = await import("path").then((m) =>
+      m.resolve(backupPath),
+    );
+    const resolvedDir = await import("path").then((m) => m.resolve(dir));
+
+    if (!resolvedBackupPath.startsWith(resolvedDir)) {
+      throw new Error(
+        `Security error: Backup path ${resolvedBackupPath} is outside the intended directory.`,
+      );
+    }
+
+    // Perform the restore
+    await copyFile(backupPath, filePath);
   }
 }

@@ -7,13 +7,44 @@ import {
 } from "../providers/nanogpt.js";
 import { validateAfterWrite } from "../validation.js";
 import { access } from "fs/promises";
-import { writeFile, mkdir } from "fs/promises";
-import { dirname } from "path";
+import { writeFile, mkdir, readFile, chmod } from "fs/promises";
+import { dirname, join } from "path";
+import { homedir } from "os";
+
+/**
+ * Persist API key to auth.json file
+ * @param apiKey - The NanoGPT API key to store
+ */
+async function persistApiKey(apiKey: string): Promise<void> {
+  const authDir = join(homedir(), ".local", "share", "opencode");
+  const authPath = join(authDir, "auth.json");
+
+  // Ensure directory exists
+  await mkdir(authDir, { recursive: true });
+
+  // Read existing auth or create new
+  let auth: Record<string, string> = {};
+  try {
+    const existing = await readFile(authPath, "utf-8");
+    auth = JSON.parse(existing);
+  } catch {
+    // File doesn't exist or is invalid, start fresh
+  }
+
+  // Add nanogpt API key
+  auth.nanogpt = apiKey;
+
+  // Write back with restricted permissions
+  await writeFile(authPath, JSON.stringify(auth, null, 2), "utf-8");
+
+  // Set file permissions to 600 (read/write for owner only)
+  await chmod(authPath, 0o600);
+}
 
 export const initCommand = new Command("init")
   .description("Initialize nanogpt provider with MCP configuration")
   .option("-f, --force", "Overwrite existing nanogpt configuration")
-  .action(async (_options) => {
+  .action(async (options) => {
     const program = initCommand.parent;
     if (!program) {
       console.error("Error: Unable to access parent command");
@@ -48,8 +79,11 @@ export const initCommand = new Command("init")
       await ensureNanogptProvider(configManager, configPath);
 
       if (apiKey) {
+        console.log("Persisting API key...");
+        await persistApiKey(apiKey);
+
         console.log("Configuring MCP environment...");
-        await configureMcpEnvironment(configManager, configPath);
+        await configureMcpEnvironment(configManager, configPath, apiKey);
         console.log("MCP server configured successfully");
       } else {
         console.log("Note: No API key provided. MCP server not configured.");

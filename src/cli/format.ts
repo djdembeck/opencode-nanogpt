@@ -3,7 +3,7 @@ import { ConfigManager } from "../config-manager.js";
 import { BackupManager } from "../backup.js";
 import { validateAfterWrite } from "../validation.js";
 import { access, readFile, writeFile } from "fs/promises";
-import { parse, applyEdits, modify, format } from "jsonc-parser";
+import { parse, applyEdits, modify } from "jsonc-parser";
 
 export const formatCommand = new Command("format")
   .description("Format config with proper double quotes and indentation")
@@ -88,10 +88,9 @@ export const formatCommand = new Command("format")
         console.log("═══════════════════════════════════════════════════════");
         console.log("");
         console.log("Changes applied:");
-        console.log("  • Consistent double quotes");
         console.log("  • 2-space indentation");
-        console.log("  • No trailing commas");
-        console.log("  • Sorted keys");
+        console.log("  • Normalized whitespace");
+        console.log("  • LF line endings");
       } else {
         console.log("");
         console.log("═══════════════════════════════════════════════════════");
