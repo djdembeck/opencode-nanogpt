@@ -161,9 +161,7 @@ The plugin automatically configures the NanoGPT MCP (Model Context Protocol) ser
     "nanogpt": {
       "type": "local",
       "command": ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
-      "environment": {
-        "NANOGPT_API_KEY": "your_api_key"
-      },
+      "environment": { "NANOGPT_API_KEY": "{env:NANOGPT_MCP_API_KEY}" },
       "enabled": true
     }
   }
