@@ -1,6 +1,17 @@
 #!/bin/bash
+# DEPRECATION NOTICE
+# This script is deprecated. Please use the opencode-nanogpt Bun package instead.
+# Install: bun install -g opencode-nanogpt
+# Usage: nanogpt-config update-models
+# See: https://github.com/djdembeck/opencode-nanogpt#readme
+
 # NanoGPT Models Auto-Update Script
 # This script fetches the latest models from NanoGPT API and updates OpenCode configuration
+
+echo "WARNING: This script is deprecated." >&2
+echo "Please use: bun install -g opencode-nanogpt" >&2
+echo "Then run: nanogpt-config update-models" >&2
+echo "" >&2
 
 # Determine config and auth directories
 XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"

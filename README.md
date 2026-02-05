@@ -1,115 +1,111 @@
-# NanoGPT OpenCode Setup
+# NanoGPT OpenCode Plugin
 
-[![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)]()
+[![npm version](https://img.shields.io/npm/v/opencode-nanogpt)](https://www.npmjs.com/package/opencode-nanogpt)
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
 
-Automated setup for configuring [OpenCode](https://opencode.ai) with [NanoGPT](https://nano-gpt.com) integration, featuring automatic model updates, reasoning model support, and built-in MCP server.
+A Bun-powered CLI plugin for configuring [OpenCode](https://opencode.ai) with [NanoGPT](https://nano-gpt.com) integration. Features automatic model updates, reasoning model support, and built-in MCP server configuration.
 
-**Two ways to use this project:**
-
-1. **New TypeScript CLI** (Recommended) - Surgical config editing with JSONC support
-2. **Bash Scripts** (Legacy) - Simple setup scripts
-
-## New: TypeScript CLI (Recommended)
-
-### Installation
+## Installation
 
 ```bash
+# Install globally with bun
 bun install -g opencode-nanogpt
-# or use without installing
+
+# Or use without installing
 bunx opencode-nanogpt
 ```
 
-### Quick Start
+## Quick Start
 
 ```bash
 # Initialize with your API key
 nanogpt-config init --api-key YOUR_API_KEY
 
 # Update models from NanoGPT API
-nanogpt-config update-models --api-key YOUR_API_KEY
+nanogpt-config update-models
 
 # Validate your configuration
 nanogpt-config validate
 ```
 
-### Features
-
-- **Surgical Editing** - Only modifies the nanogpt section, preserves everything else
-- **JSONC Support** - Preserves comments and formatting
-- **Backup & Rollback** - Automatic backups before changes
-- **Validation** - Zod schema validation
-- **Type Safety** - Full TypeScript support
-
-See [docs/INTEGRATION.md](docs/INTEGRATION.md) for detailed usage.
-
 ## Features
 
-- ✅ **CLI Login** - Easy browser-based authentication
-- ✅ **Auto Model Loading** - All models automatically fetched from NanoGPT API
-- ✅ **Reasoning Models** - Models with reasoning capabilities configured with interleaved thinking
-- ✅ **Interleaved Thinking** - Reasoning models support interleaved thinking with `reasoning_content` field
-- ✅ **Built-in MCP** - NanoGPT MCP server pre-configured
-- ✅ **Auto Updates** - Script to keep models up-to-date (use cron for scheduled updates)
-- ✅ **Default Models** - Pre-configured with GLM 4.7 models
+- **Surgical Editing** - Only modifies the nanogpt section, preserves everything else
+- **JSONC Support** - Preserves comments and formatting in config files
+- **Backup & Rollback** - Automatic backups before changes with rollback support
+- **Validation** - Zod schema validation for configuration
+- **Type Safety** - Full TypeScript support
+- **Auto Model Loading** - All models automatically fetched from NanoGPT API
+- **Reasoning Models** - Models with reasoning capabilities configured with interleaved thinking
+- **Built-in MCP** - NanoGPT MCP server pre-configured
+- **Auto Updates** - Keep models up-to-date via cron
 
-## Requirements
+## CLI Commands
 
-- OpenCode installed (or will guide you through installation)
-- NanoGPT account (get API key from [nano-gpt.com/api](https://nano-gpt.com/api))
-- Python 3 (for JSON processing) or Node.js
-- curl (for API requests)
-
-## Legacy: Bash Scripts
-
-## Quick Start
-
-### 1. Clone the repo and run the setup script
+### `init` - Initialize Configuration
 
 ```bash
-# SSH (recommended)
-git clone git@github.com:djdembeck/opencode-nanogpt.git
-
-# HTTPS (fallback)
-# git clone https://github.com/djdembeck/opencode-nanogpt.git
-
-cd opencode-nanogpt
-chmod +x setup-nanogpt-opencode.sh update-nanogpt-models.sh
-./setup-nanogpt-opencode.sh
+nanogpt-config init --api-key YOUR_API_KEY
 ```
 
-The script will:
+Sets up the NanoGPT provider in your OpenCode configuration with:
 
-1. Check if OpenCode is installed
-2. Create necessary config directories
-3. Authenticate via browser or API key
-4. Fetch all available models from NanoGPT API
-5. Configure OpenCode with:
-   - Default model: `nanogpt/zai-org/glm-4.7`
-   - Thinking model: `nanogpt/zai-org/glm-4.7:thinking`
-   - All other available models
-   - Built-in NanoGPT MCP server
+- NanoGPT API provider configuration
+- MCP server setup
+- Default models
 
-### 2. Start Using OpenCode
+### `update-models` - Update Models from API
 
 ```bash
-opencode
+# Update models (API key auto-detected from auth file or env)
+nanogpt-config update-models
+
+# With explicit API key
+nanogpt-config update-models --api-key YOUR_API_KEY
+
+# Force update even if no changes detected
+nanogpt-config update-models --force
 ```
 
-Use the `/model` command to switch between models.
+Fetches the latest models from NanoGPT API and updates your configuration.
+
+### `validate` - Validate Configuration
+
+```bash
+nanogpt-config validate
+```
+
+Validates your OpenCode configuration file against the schema.
+
+### `rollback` - Rollback Changes
+
+```bash
+nanogpt-config rollback
+```
+
+Restores the configuration from the most recent backup.
+
+### `format` - Format Configuration
+
+```bash
+# Format config file
+nanogpt-config format
+
+# Check if formatting is needed
+nanogpt-config format --check
+```
+
+Formats your configuration with proper indentation and structure.
 
 ## Model Auto-Update
 
-Use cron for periodic automatic updates. This is the recommended approach as it doesn't slow down shell startup.
-
-### Using Cron (Recommended)
-
-Add a cron job to run the update command periodically:
+Use cron for periodic automatic updates:
 
 ```bash
 # Open crontab editor
 crontab -e
 
-# Add line to update models daily at 6 AM (using globally installed package)
+# Add line to update models daily at 6 AM
 0 6 * * * nanogpt-config update-models
 
 # Or using bunx (always gets latest version)
@@ -129,22 +125,7 @@ Other examples:
 0 6 * * * nanogpt-config update-models >> ~/.local/share/opencode/model-updates.log 2>&1
 ```
 
-### Manual Updates
-
-To manually update models anytime:
-
-```bash
-# Using globally installed package
-nanogpt-config update-models
-
-# Or using bunx (without installing)
-bunx opencode-nanogpt update-models
-
-# With explicit API key (if not in auth file)
-nanogpt-config update-models --api-key YOUR_API_KEY
-```
-
-## Configuration Details
+## Configuration
 
 ### Config Files
 
@@ -155,7 +136,6 @@ nanogpt-config update-models --api-key YOUR_API_KEY
 - **Config**: `~/.config/opencode/opencode.json`
   - Contains provider and model configuration
   - Includes MCP server settings
-  - Disables OpenCode Zen provider (shows only NanoGPT models)
   - Permissions: 600 (read/write for owner only)
 
 ### Default Models
@@ -165,29 +145,15 @@ After setup, you'll have access to all NanoGPT models, with these defaults:
 - **Primary Model**: `zai-org/glm-4.7`
   - GLM 4.7 base model
   - 200K context, 65K output
-  - Standard inference endpoint
 
 - **Thinking Model**: `zai-org/glm-4.7:thinking`
   - GLM 4.7 with reasoning capabilities
-  - Uses v1thinking endpoint
-  - Interleaved thinking enabled with `reasoning_content` field
+  - Interleaved thinking enabled
   - 200K context, 65K output
-
-**Note**: Models are automatically configured with the `nanogpt` provider, so you reference them directly by their model ID (e.g., `zai-org/glm-4.7`) without needing to prefix `nanogpt/`.
-
-### Reasoning Models
-
-Models that support reasoning (like `zai-org/glm-4.7:thinking`) are automatically configured with:
-
-- **API Endpoint**: `https://nano-gpt.com/api/v1` (standard endpoint)
-- **Interleaved Thinking**: Enabled via `reasoning_content` field
-- **Capabilities**: Marked with `reasoning: true`
-
-This allows the model to show its thinking process inline with the response.
 
 ### MCP Server
 
-The setup automatically configures the built-in NanoGPT MCP (Model Context Protocol) server, which gives OpenCode access to powerful tools:
+The plugin automatically configures the NanoGPT MCP (Model Context Protocol) server:
 
 ```json
 {
@@ -206,34 +172,16 @@ The setup automatically configures the built-in NanoGPT MCP (Model Context Proto
 
 #### Available MCP Tools
 
-Once configured, you can ask OpenCode to use these tools:
-
-- **`nanogpt_chat`** - Send messages to any AI model available on NanoGPT
-- **`nanogpt_web_search`** - Search the web for current information
+- **`nanogpt_chat`** - Send messages to any AI model
+- **`nanogpt_web_search`** - Search the web
 - **`nanogpt_scrape_urls`** - Extract content from web pages
-- **`nanogpt_youtube_transcribe`** - Get transcripts from YouTube videos
-- **`nanogpt_image_generate`** - Generate images using DALL-E, Flux, Midjourney, etc.
-- **`nanogpt_get_balance`** - Check your NanoGPT account balance
-- **`nanogpt_list_text_models`** - List available text/chat models
-- **`nanogpt_list_image_models`** - List available image generation models
+- **`nanogpt_youtube_transcribe`** - Get YouTube transcripts
+- **`nanogpt_image_generate`** - Generate images
+- **`nanogpt_get_balance`** - Check account balance
+- **`nanogpt_list_text_models`** - List text models
+- **`nanogpt_list_image_models`** - List image models
 
-#### Using MCP Tools
-
-Simply ask OpenCode in natural language:
-
-```
-Search the web for the latest AI news
-```
-
-```
-Get the transcript from this YouTube video: https://youtube.com/watch?v=...
-```
-
-```
-Generate an image of a futuristic city at sunset
-```
-
-Learn more at: [https://docs.nano-gpt.com/integrations/mcp](https://docs.nano-gpt.com/integrations/mcp)
+Learn more: [https://docs.nano-gpt.com/integrations/mcp](https://docs.nano-gpt.com/integrations/mcp)
 
 ## Switching Models
 
@@ -244,8 +192,6 @@ Use the command palette:
 ```
 /model
 ```
-
-Then select from the list of available models.
 
 ### Via Config File
 
@@ -258,28 +204,9 @@ Edit `~/.config/opencode/opencode.json`:
 }
 ```
 
-**Note**: The provider (`nanogpt`) is automatically applied, so you only need the model ID. The `disabled_providers` setting hides OpenCode Zen models (Big Pickle, Grok Code Fast).
-
-## Available Models
-
-All models from NanoGPT are automatically loaded. View the full list at:
-
-- [https://nano-gpt.com/models/text](https://nano-gpt.com/models/text)
-
-Popular models include:
-
-- Claude (Anthropic) models
-- GPT (OpenAI) models
-- Gemini (Google) models
-- GLM (Zhipu AI) models
-- DeepSeek models
-- And many more...
-
 ## Troubleshooting
 
 ### OpenCode Not Found
-
-Install OpenCode using one of these methods:
 
 ```bash
 # Install script
@@ -288,7 +215,7 @@ curl -fsSL https://opencode.ai/install | bash
 # bun (global)
 bun install -g opencode-ai@latest
 
-# Homebrew (macOS/Linux)
+# Homebrew
 brew install anomalyco/tap/opencode
 ```
 
@@ -296,55 +223,32 @@ brew install anomalyco/tap/opencode
 
 1. Check your network connection
 2. Verify your API key at [nano-gpt.com/api](https://nano-gpt.com/api)
-3. Try manual API key entry instead of browser login
+3. Check auth file: `cat ~/.local/share/opencode/auth.json`
 
 ### Models Not Loading
 
-1. Run the update script manually:
-
-   ```bash
-   ./update-nanogpt-models.sh
-   ```
-
-2. Check if your API key is valid:
-
-   ```bash
-   cat ~/.local/share/opencode/auth.json
-   ```
-
+1. Run update manually: `nanogpt-config update-models`
+2. Check API key is valid
 3. Verify network access to nano-gpt.com
 
 ### MCP Server Not Working
 
-1.  Ensure bunx is available:
-
-    ```bash
-    which bunx
-    ```
-
-2.  Install Bun if missing:
-
-    ```bash
-    # Install Bun
-    curl -fsSL https://bun.sh/install | bash
-    ```
-
-3.  Check MCP server status in OpenCode logs
+1. Ensure bunx is available: `which bunx`
+2. Install Bun: `curl -fsSL https://bun.sh/install | bash`
+3. Check MCP server status in OpenCode logs
 
 ## Advanced Configuration
 
 ### Custom Base URL
 
-Set a custom NanoGPT base URL:
-
 ```bash
 export NANOGPT_BASE_URL=https://your-custom-url.com
-./setup-nanogpt-opencode.sh
+nanogpt-config init --api-key YOUR_API_KEY
 ```
 
 ### Adding Custom Models
 
-Edit `~/.config/opencode/opencode.json` and add models to the `models` section:
+Edit `~/.config/opencode/opencode.json`:
 
 ```json
 {
@@ -356,11 +260,6 @@ Edit `~/.config/opencode/opencode.json` and add models to the `models` section:
           "limit": {
             "context": 128000,
             "output": 4096
-          },
-          "api": {
-            "id": "your-custom-model",
-            "url": "https://nano-gpt.com/api/v1",
-            "npm": "@ai-sdk/openai-compatible"
           }
         }
       }
@@ -369,54 +268,37 @@ Edit `~/.config/opencode/opencode.json` and add models to the `models` section:
 }
 ```
 
-### Disabling MCP Server
+## API Reference
 
-Edit `~/.config/opencode/opencode.json`:
+See [docs/API.md](docs/API.md) for programmatic usage:
 
-```json
-{
-  "mcp": {
-    "nanogpt": {
-      "enabled": false
-    }
-  }
-}
+```typescript
+import { ConfigManager } from "opencode-nanogpt";
+import { updateModelsFromApi } from "opencode-nanogpt/api";
+
+const configManager = new ConfigManager();
+await updateModelsFromApi(configManager, configPath, apiKey);
 ```
 
 ## Project Structure
 
 ```
-setup-opencode-nanogpt/
-├── setup-nanogpt-opencode.sh    # Main setup script
-├── update-nanogpt-models.sh     # Model auto-update script
-├── README.md                     # This file
-├── opencode/                     # OpenCode source (reference)
-├── nanocode/                     # NanoCode fork (reference)
-└── opencode_nanogpt.sh          # Legacy script (deprecated)
+opencode-nanogpt/
+├── src/
+│   ├── cli/           # CLI commands
+│   ├── api/           # NanoGPT API integration
+│   ├── providers/     # Provider configuration
+│   └── *.ts           # Core modules
+├── dist/              # Compiled JavaScript
+├── docs/              # Documentation
+└── package.json
 ```
-
-## What's Different from Original OpenCode?
-
-This setup is based on the NanoCode fork with these key features:
-
-1. **Automatic Model Discovery**: Models are fetched from NanoGPT API instead of hardcoded
-2. **Reasoning Support**: Models with reasoning capabilities configured with interleaved thinking
-3. **Interleaved Thinking**: Reasoning models show thinking process inline
-4. **Built-in MCP**: NanoGPT MCP server is pre-configured
-5. **Auto-Updates**: Includes script to keep models current
 
 ## Credits
 
 - [OpenCode](https://opencode.ai) - Original project by Anomaly
-- [NanoCode](https://github.com/nanogpt-community/nanocode) - Fork with NanoGPT integration
 - [NanoGPT](https://nano-gpt.com) - AI provider platform
 
 ## License
 
-See LICENSE file in respective source directories.
-
-## Support
-
-- OpenCode: [https://github.com/anomalyco/opencode](https://github.com/anomalyco/opencode)
-- NanoGPT: [https://nano-gpt.com](https://nano-gpt.com)
-- NanoCode: [https://github.com/nanogpt-community/nanocode](https://github.com/nanogpt-community/nanocode)
+ISC

@@ -1,6 +1,22 @@
 #!/bin/bash
 set -euo pipefail
 
+# DEPRECATION NOTICE
+# This script is deprecated. Please use the opencode-nanogpt Bun package instead.
+# Install: bun install -g opencode-nanogpt
+# Usage: nanogpt-config init --api-key YOUR_API_KEY
+# See: https://github.com/djdembeck/opencode-nanogpt#readme
+
+echo "WARNING: This script is deprecated." >&2
+echo "Please use: bun install -g opencode-nanogpt" >&2
+echo "Then run: nanogpt-config init --api-key YOUR_API_KEY" >&2
+echo "" >&2
+read -p "Continue anyway? (y/N) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    exit 1
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
