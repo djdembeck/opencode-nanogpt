@@ -103,24 +103,30 @@ Use cron for periodic automatic updates. This is the recommended approach as it 
 
 ### Using Cron (Recommended)
 
-Add a cron job to run the update script periodically:
+Add a cron job to run the update command periodically:
 
 ```bash
 # Open crontab editor
 crontab -e
 
-# Add line to update models daily at 6 AM
-0 6 * * * /path/to/opencode-nanogpt/update-nanogpt-models.sh
+# Add line to update models daily at 6 AM (using globally installed package)
+0 6 * * * nanogpt-config update-models
+
+# Or using bunx (always gets latest version)
+0 6 * * * bunx opencode-nanogpt update-models
 ```
 
 Other examples:
 
 ```bash
 # Update every hour
-0 * * * * /path/to/opencode-nanogpt/update-nanogpt-models.sh
+0 * * * * nanogpt-config update-models
 
 # Update weekly on Sundays at 3 AM
-0 3 * * 0 /path/to/opencode-nanogpt/update-nanogpt-models.sh
+0 3 * * 0 nanogpt-config update-models
+
+# With logging to track updates
+0 6 * * * nanogpt-config update-models >> ~/.local/share/opencode/model-updates.log 2>&1
 ```
 
 ### Manual Updates
@@ -128,7 +134,14 @@ Other examples:
 To manually update models anytime:
 
 ```bash
-./update-nanogpt-models.sh
+# Using globally installed package
+nanogpt-config update-models
+
+# Or using bunx (without installing)
+bunx opencode-nanogpt update-models
+
+# With explicit API key (if not in auth file)
+nanogpt-config update-models --api-key YOUR_API_KEY
 ```
 
 ## Configuration Details
