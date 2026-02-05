@@ -3,7 +3,7 @@ import { ConfigManager } from "../config-manager.js";
 import { BackupManager } from "../backup.js";
 import { validateAfterWrite } from "../validation.js";
 import { access, readFile, writeFile } from "fs/promises";
-import { parse, applyEdits, modify } from "jsonc-parser";
+import { parse, applyEdits, format } from "jsonc-parser";
 
 export const formatCommand = new Command("format")
   .description("Format config with proper double quotes and indentation")
