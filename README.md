@@ -1,6 +1,42 @@
 # NanoGPT OpenCode Setup
 
-Automated setup scripts for configuring [OpenCode](https://opencode.ai) with [NanoGPT](https://nano-gpt.com) integration, featuring automatic model updates, reasoning model support, and built-in MCP server.
+[![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)]()
+
+Automated setup for configuring [OpenCode](https://opencode.ai) with [NanoGPT](https://nano-gpt.com) integration, featuring automatic model updates, reasoning model support, and built-in MCP server.
+
+**Two ways to use this project:**
+1. **New TypeScript CLI** (Recommended) - Surgical config editing with JSONC support
+2. **Bash Scripts** (Legacy) - Simple setup scripts
+
+## New: TypeScript CLI (Recommended)
+
+### Installation
+```bash
+npm install -g opencode-nanogpt
+# or use without installing
+npx opencode-nanogpt
+```
+
+### Quick Start
+```bash
+# Initialize with your API key
+nanogpt-config init --api-key YOUR_API_KEY
+
+# Update models from NanoGPT API
+nanogpt-config update-models --api-key YOUR_API_KEY
+
+# Validate your configuration
+nanogpt-config validate
+```
+
+### Features
+- **Surgical Editing** - Only modifies the nanogpt section, preserves everything else
+- **JSONC Support** - Preserves comments and formatting
+- **Backup & Rollback** - Automatic backups before changes
+- **Validation** - Zod schema validation
+- **Type Safety** - Full TypeScript support
+
+See [docs/INTEGRATION.md](docs/INTEGRATION.md) for detailed usage.
 
 ## Features
 
@@ -18,6 +54,8 @@ Automated setup scripts for configuring [OpenCode](https://opencode.ai) with [Na
 -   NanoGPT account (get API key from [nano-gpt.com/api](https://nano-gpt.com/api))
 -   Python 3 (for JSON processing) or Node.js
 -   curl (for API requests)
+
+## Legacy: Bash Scripts
 
 ## Quick Start
 
