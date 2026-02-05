@@ -417,7 +417,8 @@ if command -v python3 &> /dev/null; then
     # Write models JSON to temp file to avoid argument list size limits
     TEMP_MODELS_FILE=$(mktemp)
     printf '%s' "$MODELS_JSON" > "$TEMP_MODELS_FILE"
-    
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" \
     NANOGPT_API_V1="$API_V1_URL" \
     CONFIG_FILE_PATH="$CONFIG_FILE" \
     MODELS_FILE_PATH="$TEMP_MODELS_FILE" \
@@ -426,7 +427,9 @@ if command -v python3 &> /dev/null; then
 import json
 import os
 import sys
+import tempfile
 
+script_dir = os.environ.get("SCRIPT_DIR", ".")
 config_file = os.environ.get("CONFIG_FILE_PATH")
 api_v1 = os.environ.get("NANOGPT_API_V1", "https://nano-gpt.com/api/v1")
 models_file = os.environ.get("MODELS_FILE_PATH")
@@ -445,13 +448,19 @@ try:
     with open(config_file, "r") as f:
         content = f.read()
     import re
-    # Strip single-line comments (// ...) but not URLs like http://
     content = re.sub(r'(?<!:)(?<!/)(?<!)//.*$', '', content, flags=re.MULTILINE)
-    # Strip multi-line comments (/* ... */)
     content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
-    # Strip trailing commas before } or ]
     content = re.sub(r',(\s*[}\]])', r'\1', content)
-    config = json.loads(content)
+    try:
+        config = json.loads(content)
+    except json.JSONDecodeError:
+        try:
+            import json5
+            config = json5.loads(content)
+        except ImportError:
+            config = {}
+        except Exception:
+            config = {}
 except (json.JSONDecodeError, FileNotFoundError):
     config = {}
 
@@ -595,10 +604,12 @@ if "nanogpt" not in config["mcp"]:
         "enabled": True
     }
 
+# Always update models and write config with standard JSON format
+config["provider"]["nanogpt"]["models"] = models_dict
 with open(config_file, "w") as f:
     json.dump(config, f, indent=2)
 EOF
-    
+
     # Clean up temp file
     rm -f "$TEMP_MODELS_FILE"
     echo -e "${GREEN}✓ Updated opencode.json with NanoGPT provider and models${NC}"
