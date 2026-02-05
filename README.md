@@ -1,6 +1,7 @@
 # NanoGPT OpenCode Setup
 
 [![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)]()
+[![npm](https://img.shields.io/npm/v/opencode-nanogpt)](https://www.npmjs.com/package/opencode-nanogpt)
 
 Automated setup for configuring [OpenCode](https://opencode.ai) with [NanoGPT](https://nano-gpt.com) integration, featuring automatic model updates, reasoning model support, and built-in MCP server.
 
