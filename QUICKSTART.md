@@ -19,6 +19,7 @@ chmod +x setup-nanogpt-opencode.sh update-nanogpt-models.sh
 ### 2. Authenticate
 
 Choose one:
+
 - **Browser login** (recommended) - Opens browser for OAuth
 - **API key** - Paste your key from [nano-gpt.com/api](https://nano-gpt.com/api)
 
@@ -41,6 +42,7 @@ After setup, you'll have:
 ## Switch Models
 
 In OpenCode, press `Cmd+'` (Mac) or `Ctrl+'` (Linux) and type:
+
 ```
 /model
 ```
@@ -49,17 +51,17 @@ Or use the default keybind to open model selector.
 
 ## Keep Models Updated
 
-### Option 1: Automatic (Default)
+### Option 1: Cron (Recommended)
 
-The setup script automatically adds auto-update to your shell config files:
+Set up a cron job for automatic updates without slowing down shell startup:
 
-- `.zshrc` (Zsh)
-- `.bashrc` (Bash)
-- `.bash_profile` (macOS Bash)
-- `.profile` (POSIX shells)
-- `fish/config.fish` (Fish shell)
+```bash
+# Open crontab editor
+crontab -e
 
-Models will update automatically when you open a new terminal.
+# Add line to update models daily at 6 AM
+0 6 * * * /path/to/opencode-nanogpt/update-nanogpt-models.sh
+```
 
 ### Option 2: Run Manually
 
@@ -89,11 +91,13 @@ No additional setup needed—just ask in natural language!
 ## Reasoning vs. Standard Models
 
 ### Standard Model (`zai-org/glm-4.7`)
+
 - Regular inference
 - Faster responses
 - Endpoint: `https://nano-gpt.com/api/v1`
 
 ### Thinking Model (`zai-org/glm-4.7:thinking`)
+
 - Shows reasoning process
 - More detailed responses
 - Interleaved thinking via `reasoning_content` field
@@ -102,6 +106,7 @@ No additional setup needed—just ask in natural language!
 ## Need Help?
 
 See the full [README.md](README.md) for:
+
 - Troubleshooting
 - Advanced configuration
 - MCP setup details

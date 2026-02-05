@@ -3,34 +3,39 @@
 ## Installation
 
 ```bash
-npm install -g opencode-nanogpt
+bun install -g opencode-nanogpt
 # or
-npx opencode-nanogpt
+bunx opencode-nanogpt
 ```
 
 ## CLI Usage
 
 ### Initialize NanoGPT Provider
+
 ```bash
 nanogpt-config init --api-key YOUR_API_KEY
 ```
 
 ### Update Models from API
+
 ```bash
 nanogpt-config update-models --api-key YOUR_API_KEY
 ```
 
 ### Validate Configuration
+
 ```bash
 nanogpt-config validate
 ```
 
 ### Rollback Changes
+
 ```bash
 nanogpt-config rollback
 ```
 
 ### Format Configuration
+
 ```bash
 nanogpt-config format
 ```
@@ -38,22 +43,31 @@ nanogpt-config format
 ## Library Usage
 
 ```typescript
-import { ConfigManager } from 'opencode-nanogpt';
-import { ensureNanogptProvider, configureMcpEnvironment } from 'opencode-nanogpt/providers';
+import { ConfigManager } from "opencode-nanogpt";
+import {
+  ensureNanogptProvider,
+  configureMcpEnvironment,
+} from "opencode-nanogpt/providers";
 
 const configManager = new ConfigManager();
-await ensureNanogptProvider(configManager, '~/.config/opencode/opencode.json');
-await configureMcpEnvironment(configManager, '~/.config/opencode/opencode.json', 'api-key');
+await ensureNanogptProvider(configManager, "~/.config/opencode/opencode.json");
+await configureMcpEnvironment(
+  configManager,
+  "~/.config/opencode/opencode.json",
+  "api-key",
+);
 ```
 
 ## Migration from Bash Scripts
 
 ### Old Way
+
 ```bash
 ./setup-nanogpt-opencode.sh
 ```
 
 ### New Way
+
 ```bash
 nanogpt-config init --api-key YOUR_API_KEY
 ```
@@ -75,7 +89,7 @@ nanogpt-config init --api-key YOUR_API_KEY
   "mcp": {
     "nanogpt": {
       "type": "local",
-      "command": ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+      "command": ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
       "environment": { "NANOGPT_API_KEY": "{env:NANOGPT_MCP_API_KEY}" },
       "enabled": true
     }
@@ -86,10 +100,13 @@ nanogpt-config init --api-key YOUR_API_KEY
 ## Troubleshooting
 
 ### Config file not found
+
 Ensure the config path is correct or use `--config` flag.
 
 ### API key errors
+
 Verify your API key at https://nano-gpt.com/api
 
 ### Permission denied
+
 Ensure the config file has proper permissions (600).
