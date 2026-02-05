@@ -18,6 +18,42 @@ def find_string_end(content, start_pos):
             i += 1
     return -1
 
+def skip_comment_or_string(content, i):
+    """
+    Skip past JSONC comments and strings starting at position i.
+    Returns the new position after the comment/string, or -1 if unterminated.
+    If i is not at a comment or string start, returns i unchanged.
+    """
+    if i >= len(content):
+        return i
+
+    char = content[i]
+
+    if char == '/' and i + 1 < len(content):
+        if content[i + 1] == '/':
+            # Line comment: skip until newline or EOF
+            i += 2
+            while i < len(content) and content[i] != '\n':
+                i += 1
+            return i
+        elif content[i + 1] == '*':
+            # Block comment: skip until */
+            i += 2
+            while i < len(content) - 1:
+                if content[i] == '*' and content[i + 1] == '/':
+                    return i + 2
+                i += 1
+            # Block comment not terminated
+            return -1
+    elif char == '"':
+        # Skip string
+        string_end = find_string_end(content, i)
+        if string_end == -1:
+            return -1
+        return string_end + 1
+
+    return i
+
 def find_models_section(content):
     """
     Find the models section within nanogpt provider.
@@ -45,74 +81,53 @@ def find_models_section(content):
     while i < len(content) and brace_count > 0:
         char = content[i]
 
-        # Skip JSONC comments
-        if char == '/' and i + 1 < len(content):
-            if content[i + 1] == '/':
-                # Line comment: skip until newline or EOF
-                i += 2
-                while i < len(content) and content[i] != '\n':
-                    i += 1
-                continue
-            elif content[i + 1] == '*':
-                # Block comment: skip until */
-                i += 2
-                while i < len(content) - 1:
-                    if content[i] == '*' and content[i + 1] == '/':
-                        i += 2
-                        break
-                    i += 1
-                else:
-                    # Block comment not terminated
-                    return None
-                continue
-
-        if char == '"':
-            # Skip string
-            string_end = find_string_end(content, i)
-            if string_end == -1:
+        # Skip JSONC comments and strings
+        if char in '/"':
+            new_i = skip_comment_or_string(content, i)
+            if new_i == -1:
                 return None
-            # Check if this string is "models"
-            if content[i:string_end+1] == '"models"':
-                # Found "models", now find the colon and opening brace
-                j = string_end + 1
-                while j < len(content) and content[j] in ' \t\n':
-                    j += 1
-                if j < len(content) and content[j] == ':':
-                    j += 1
+            if new_i != i:
+                # Check if we just skipped the "models" string
+                if char == '"' and content[i:new_i] == '"models"':
+                    string_end = new_i - 1
+                    # Found "models", now find the colon and opening brace
+                    j = string_end + 1
                     while j < len(content) and content[j] in ' \t\n':
                         j += 1
-                    if j < len(content) and content[j] == '{':
-                        # Found it! Now find the end of this object
-                        models_start = j
-                        models_brace_count = 1
+                    if j < len(content) and content[j] == ':':
                         j += 1
-                        while j < len(content) and models_brace_count > 0:
-                            if content[j] == '"':
-                                string_end = find_string_end(content, j)
-                                if string_end == -1:
-                                    return None
-                                j = string_end + 1
-                            elif content[j] == '{':
-                                models_brace_count += 1
+                        while j < len(content) and content[j] in ' \t\n':
+                            j += 1
+                        if j < len(content) and content[j] == '{':
+                            # Found it! Now find the end of this object
+                            models_start = j
+                            models_brace_count = 1
+                            j += 1
+                            while j < len(content) and models_brace_count > 0:
+                                if content[j] in '/"':
+                                    new_j = skip_comment_or_string(content, j)
+                                    if new_j == -1:
+                                        return None
+                                    if new_j != j:
+                                        j = new_j
+                                        continue
+                                if content[j] == '{':
+                                    models_brace_count += 1
+                                elif content[j] == '}':
+                                    models_brace_count -= 1
+                                    if models_brace_count == 0:
+                                        models_end = j + 1
+                                        return (models_start, models_end)
                                 j += 1
-                            elif content[j] == '}':
-                                models_brace_count -= 1
-                                if models_brace_count == 0:
-                                    models_end = j + 1
-                                    return (models_start, models_end)
-                                j += 1
-                            else:
-                                j += 1
-            i = string_end + 1
-        elif char == '{':
+                i = new_i
+                continue
+
+        if char == '{':
             brace_count += 1
-            i += 1
         elif char == '}':
             brace_count -= 1
-            i += 1
-        else:
-            i += 1
-    
+        i += 1
+
     return None
 
 def update_models_jsonc(config_file, models_dict):
