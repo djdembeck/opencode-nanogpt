@@ -3,3 +3,8 @@ node_modules/
 dist/
 *.log
 *.bak
+__pycache__/
+*.py[cod]
+*$py.class
+.sisyphus/
+test-temp/

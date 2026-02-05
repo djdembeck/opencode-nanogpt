@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ConfigManager } from './config-manager';
+import { ConfigManager } from './config-manager.js';
 
 /**
  * Model configuration schema for individual AI models.

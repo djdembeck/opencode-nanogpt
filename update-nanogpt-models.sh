@@ -94,6 +94,7 @@ if models_file:
         pass
 
 # Load existing config (handle JSONC with comments and trailing commas)
+# Also handle JSON5 format (unquoted property names)
 try:
     with open(config_file, "r") as f:
         content = f.read()
@@ -104,7 +105,20 @@ try:
     content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
     # Strip trailing commas before } or ]
     content = re.sub(r',(\s*[}\]])', r'\1', content)
-    config = json.loads(content)
+    
+    # Try standard JSON first
+    try:
+        config = json.loads(content)
+    except json.JSONDecodeError:
+        # Try JSON5 format (unquoted keys)
+        try:
+            import json5
+            config = json5.loads(content)
+        except ImportError:
+            # No json5 library, can't parse
+            exit(0)
+        except Exception:
+            exit(0)
 except (json.JSONDecodeError, FileNotFoundError):
     exit(0)
 
@@ -190,6 +204,5 @@ if models_dict:
 
 EOF
     
-    # Clean up temp file
     rm -f "$TEMP_MODELS_FILE"
 fi

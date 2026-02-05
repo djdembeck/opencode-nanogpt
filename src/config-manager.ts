@@ -1,4 +1,4 @@
-import { parse, modify, applyEdits, Edit } from "jsonc-parser";
+import { parse, modify, applyEdits } from "jsonc-parser";
 import { readFile, writeFile, rename, mkdir } from "fs/promises";
 import { dirname } from "path";
 
@@ -55,13 +55,13 @@ export class ConfigManager {
   async modifyConfig(
     filePath: string,
     path: string[],
-    value: any
+    value: any,
   ): Promise<void> {
     const content = await readFile(filePath, "utf-8");
     const edits = modify(content, path, value, {
       formattingOptions: { tabSize: 2, insertSpaces: true, eol: "\n" },
     });
     const newContent = applyEdits(content, edits);
-    await writeFile(filePath, newContent, "utf-8");
+    await this.writeConfig(filePath, newContent);
   }
 }
