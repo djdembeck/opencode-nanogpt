@@ -38,14 +38,34 @@ def find_models_section(content):
     
     # Now we're at the opening brace of nanogpt object
     # We need to find "models" within this object
-    nanogpt_brace_pos = i
-    
+
     # Search for "models" within nanogpt's braces
     brace_count = 1
     i += 1
     while i < len(content) and brace_count > 0:
         char = content[i]
-        
+
+        # Skip JSONC comments
+        if char == '/' and i + 1 < len(content):
+            if content[i + 1] == '/':
+                # Line comment: skip until newline or EOF
+                i += 2
+                while i < len(content) and content[i] != '\n':
+                    i += 1
+                continue
+            elif content[i + 1] == '*':
+                # Block comment: skip until */
+                i += 2
+                while i < len(content) - 1:
+                    if content[i] == '*' and content[i + 1] == '/':
+                        i += 2
+                        break
+                    i += 1
+                else:
+                    # Block comment not terminated
+                    return None
+                continue
+
         if char == '"':
             # Skip string
             string_end = find_string_end(content, i)
@@ -151,7 +171,12 @@ if __name__ == '__main__':
     
     config_file = sys.argv[1]
     models_json_str = sys.argv[2]
-    
-    models_dict = json.loads(models_json_str)
+
+    try:
+        models_dict = json.loads(models_json_str)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON provided for models: {e}")
+        sys.exit(1)
+
     success = update_models_jsonc(config_file, models_dict)
     sys.exit(0 if success else 1)
