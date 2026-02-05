@@ -261,7 +261,7 @@ if ! command -v opencode &> /dev/null; then
     echo ""
     echo "To install OpenCode, run one of:"
     echo "  curl -fsSL https://opencode.ai/install | bash"
-    echo "  npm i -g opencode-ai@latest"
+    echo "  bun install -g opencode-ai@latest"
     echo "  brew install anomalyco/tap/opencode"
     echo ""
     read -p "Do you want to continue with configuration anyway? (y/n): " -n 1 -r
@@ -588,7 +588,7 @@ if "mcp" not in config:
 if "nanogpt" not in config["mcp"]:
     config["mcp"]["nanogpt"] = {
         "type": "local",
-        "command": ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+        "command": ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
         "environment": {
             "NANOGPT_API_KEY": api_key_input
         },
@@ -655,7 +655,7 @@ else
   "mcp": {
     "nanogpt": {
       "type": "local",
-      "command": ["npx", "@nanogpt/mcp@latest", "--scope", "user"],
+      "command": ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
       "environment": {
         "NANOGPT_API_KEY": "${API_KEY}"
       },
@@ -707,46 +707,10 @@ echo -e "  Use the ${YELLOW}/model${NC} command in OpenCode"
 echo ""
 echo -e "To update models from NanoGPT API:"
 echo -e "  Run: ${CYAN}./update-nanogpt-models.sh${NC}"
-echo -e "  Auto-update added to shell init files (.zshrc, .bashrc)"
+echo ""
+echo -e "For automatic updates, add a cron job:"
+echo -e "  ${CYAN}crontab -e${NC}"
+echo -e "  Add: ${CYAN}0 6 * * * $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/update-nanogpt-models.sh${NC}"
 echo ""
 echo -e "View all models at: ${BLUE}${MODELS_URL}${NC}"
-echo ""
-
-# Add auto-update to shell initialization files
-echo -e "${BLUE}Setting up auto-update in shell configuration...${NC}"
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-UPDATE_SCRIPT="$SCRIPT_DIR/update-nanogpt-models.sh"
-SOURCE_LINE="source \"$UPDATE_SCRIPT\" 2>/dev/null || true"
-
-# Function to add source line to shell config
-add_to_shell_config() {
-    local config_file="$1"
-    local shell_name="$2"
-    
-    if [ ! -f "$config_file" ]; then
-        return
-    fi
-    
-    # Check if already added
-    if grep -q "update-nanogpt-models.sh" "$config_file" 2>/dev/null; then
-        return
-    fi
-    
-    # Add a comment and the source line
-    cat >> "$config_file" << EOF
-
-# Auto-update NanoGPT models from API (added by setup-nanogpt-opencode.sh)
-$SOURCE_LINE
-EOF
-    echo -e "${GREEN}✓ Added to $shell_name${NC}"
-}
-
-# Add to various shell config files
-add_to_shell_config "$HOME/.zshrc" ".zshrc"
-add_to_shell_config "$HOME/.bashrc" ".bashrc"
-add_to_shell_config "$HOME/.bash_profile" ".bash_profile"
-add_to_shell_config "$HOME/.profile" ".profile"
-add_to_shell_config "$HOME/.config/fish/config.fish" "fish config"
-
 echo ""
