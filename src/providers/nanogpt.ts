@@ -1,12 +1,12 @@
-import { ConfigManager } from "../config-manager.js";
-import { readFile, writeFile } from "fs/promises";
-import { modify, applyEdits } from "jsonc-parser";
+import { ConfigManager } from '../config-manager.js';
+import { readFile, writeFile } from 'fs/promises';
+import { modify, applyEdits } from 'jsonc-parser';
 
 /**
  * MCP Server Configuration for NanoGPT
  */
 export interface McpServerConfig {
-  type: "local";
+  type: 'local';
   command: string[];
   environment: Record<string, string>;
   enabled: boolean;
@@ -42,7 +42,7 @@ export interface NanogptProvider {
  * Configures the MCP (Model Context Protocol) environment for NanoGPT.
  *
  * IMPORTANT: The actual API key is NOT stored in the config file.
- * Instead, the {env:NANOGPT_API_KEY} interpolation syntax is used,
+ * Instead, the {env:NANOGPT_MCP_API_KEY} interpolation syntax is used,
  * which will be resolved at runtime from the environment variable.
  *
  * @param configManager - ConfigManager instance for surgical config edits
@@ -52,18 +52,18 @@ export interface NanogptProvider {
 export async function configureMcpEnvironment(
   configManager: ConfigManager,
   filePath: string,
-  apiKey: string,
+  apiKey: string
 ): Promise<void> {
   const mcpConfig: McpServerConfig = {
-    type: "local",
-    command: ["bunx", "@nanogpt/mcp@latest", "--scope", "user"],
+    type: 'local',
+    command: ['npx', '@nanogpt/mcp@latest', '--scope', 'user'],
     environment: {
-      NANOGPT_API_KEY: "{env:NANOGPT_API_KEY}",
+      NANOGPT_API_KEY: '{env:NANOGPT_MCP_API_KEY}'
     },
-    enabled: true,
+    enabled: true
   };
 
-  await configManager.modifyConfig(filePath, ["mcp", "nanogpt"], mcpConfig);
+  await configManager.modifyConfig(filePath, ['mcp', 'nanogpt'], mcpConfig);
 }
 
 /**
@@ -77,13 +77,9 @@ export async function configureMcpEnvironment(
 export async function updateNanogptProvider(
   configManager: ConfigManager,
   filePath: string,
-  models: Record<string, NanogptModel>,
+  models: Record<string, NanogptModel>
 ): Promise<void> {
-  await configManager.modifyConfig(
-    filePath,
-    ["provider", "nanogpt", "models"],
-    models,
-  );
+  await configManager.modifyConfig(filePath, ['provider', 'nanogpt', 'models'], models);
 }
 
 /**
@@ -95,21 +91,17 @@ export async function updateNanogptProvider(
  */
 export async function ensureNanogptProvider(
   configManager: ConfigManager,
-  filePath: string,
+  filePath: string
 ): Promise<void> {
   // First ensure the provider.nanogpt section exists
   const defaultProvider: Partial<NanogptProvider> = {
-    npm: "@ai-sdk/openai-compatible",
-    name: "NanoGPT",
-    options: { baseURL: "https://nano-gpt.com/api/v1" },
-    models: {},
+    npm: '@ai-sdk/openai-compatible',
+    name: 'NanoGPT',
+    options: { baseURL: 'https://nano-gpt.com/api/v1' },
+    models: {}
   };
 
-  await configManager.modifyConfig(
-    filePath,
-    ["provider", "nanogpt"],
-    defaultProvider,
-  );
+  await configManager.modifyConfig(filePath, ['provider', 'nanogpt'], defaultProvider);
 }
 
 /**
@@ -122,12 +114,12 @@ export async function ensureNanogptProvider(
  */
 export async function removeNanogptProvider(
   configManager: ConfigManager,
-  filePath: string,
+  filePath: string
 ): Promise<void> {
-  const content = await readFile(filePath, "utf-8");
+  const content = await readFile(filePath, 'utf-8');
 
   // Parse to check if nanogpt exists
-  const { parse } = await import("jsonc-parser");
+  const { parse } = await import('jsonc-parser');
   const config = parse(content);
 
   // Only remove if nanogpt exists in provider
@@ -136,10 +128,10 @@ export async function removeNanogptProvider(
   }
 
   // Use jsonc-parser modify to set the nanogpt value to undefined (removes it)
-  const edits = modify(content, ["provider", "nanogpt"], undefined, {
-    formattingOptions: { tabSize: 2, insertSpaces: true, eol: "\n" },
+  const edits = modify(content, ['provider', 'nanogpt'], undefined, {
+    formattingOptions: { tabSize: 2, insertSpaces: true, eol: '\n' },
   });
 
   const newContent = applyEdits(content, edits);
-  await writeFile(filePath, newContent, "utf-8");
+  await writeFile(filePath, newContent, 'utf-8');
 }

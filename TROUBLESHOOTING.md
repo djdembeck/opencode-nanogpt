@@ -120,7 +120,6 @@ OpenCode uses a provider-based system:
             "context": 200000,
             "output": 65535
           }
-          // Note: The api block is optional for thinking models
         }
       }
     }
