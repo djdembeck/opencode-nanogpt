@@ -1,0 +1,47 @@
+# Source and development files
+src/
+*.ts
+!*.d.ts
+*.test.ts
+*.spec.ts
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing and coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Documentation and project files
+AGENTS.md
+QUICKSTART.md
+TROUBLESHOOTING.md
+docs/
+
+# Git and CI files
+.git/
+.github/
+.gitignore
+
+# Temporary and cache files
+*.log
+*.bak
+.tmp/
+.temp/
+.cache/
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Scripts and tooling
+scripts/
+.sisyphus/
+test-temp/
+.opencode/

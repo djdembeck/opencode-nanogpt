@@ -1,6 +1,7 @@
 .opencode
 node_modules/
 dist/
+bin/
 *.log
 *.bak
 __pycache__/
