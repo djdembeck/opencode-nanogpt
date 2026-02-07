@@ -28,11 +28,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Configure npm authentication
-        run: |
-          npm config set registry https://registry.npmjs.org
-          npm config set //registry.npmjs.org/:_authToken "${{ secrets.NPM_TOKEN }}"
-          npm config ls
-
       - name: Publish to npm
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
