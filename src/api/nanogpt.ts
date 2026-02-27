@@ -19,8 +19,10 @@ interface ApiModel {
     vision?: boolean;
   };
   pricing?: {
-    input: number;
-    output: number;
+    prompt: number;
+    completion: number;
+    currency?: string;
+    unit?: string;
   };
   created?: number;
 }
@@ -183,10 +185,13 @@ export function transformApiModel(apiModel: ApiModel): NanogptModel {
     model.interleaved = { field: "reasoning_content" };
   }
 
-  if (apiModel.pricing) {
+  if (
+    apiModel.pricing?.prompt !== undefined &&
+    apiModel.pricing?.completion !== undefined
+  ) {
     model.cost = {
-      input: apiModel.pricing.input,
-      output: apiModel.pricing.output,
+      input: apiModel.pricing.prompt,
+      output: apiModel.pricing.completion,
     };
   }
 

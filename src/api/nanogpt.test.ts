@@ -32,7 +32,12 @@ describe("fetchModels", () => {
             context_length: 200000,
             max_output_tokens: 65535,
             capabilities: { reasoning: false, vision: false },
-            pricing: { input: 0.0001, output: 0.0002 },
+            pricing: {
+              prompt: 0.0001,
+              completion: 0.0002,
+              currency: "USD",
+              unit: "per_million_tokens",
+            },
             created: 1704067200,
           },
         ],
@@ -195,7 +200,12 @@ describe("transformApiModel", () => {
       context_length: 200000,
       max_output_tokens: 65535,
       capabilities: { reasoning: false, vision: false },
-      pricing: { input: 0.0001, output: 0.0002 },
+      pricing: {
+        prompt: 0.0001,
+        completion: 0.0002,
+        currency: "USD",
+        unit: "per_million_tokens",
+      },
       created: 1704067200,
     };
 
