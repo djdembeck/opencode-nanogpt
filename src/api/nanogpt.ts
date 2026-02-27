@@ -1,9 +1,9 @@
-import axios, { AxiosError } from 'axios';
-import { NanogptModel } from '../providers/nanogpt.js';
-import { ConfigManager } from '../config-manager.js';
-import { updateNanogptProvider } from '../providers/nanogpt.js';
+import axios, { AxiosError } from "axios";
+import { NanogptModel } from "../providers/nanogpt.js";
+import { ConfigManager } from "../config-manager.js";
+import { updateNanogptProvider } from "../providers/nanogpt.js";
 
-const API_BASE_URL = 'https://nano-gpt.com';
+const API_BASE_URL = "https://nano-gpt.com";
 const API_TIMEOUT = 30000;
 
 /**
@@ -26,7 +26,8 @@ interface ApiModel {
 }
 
 interface ApiResponse {
-  models: ApiModel[];
+  object: string;
+  data: ApiModel[];
 }
 
 /**
@@ -36,10 +37,10 @@ export class NanogptApiError extends Error {
   constructor(
     message: string,
     public statusCode?: number,
-    public code: string = 'API_ERROR'
+    public code: string = "API_ERROR",
   ) {
     super(message);
-    this.name = 'NanogptApiError';
+    this.name = "NanogptApiError";
   }
 }
 
@@ -57,21 +58,24 @@ export async function fetchModels(apiKey: string): Promise<NanogptModel[]> {
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          Accept: 'application/json',
+          Accept: "application/json",
         },
         timeout: API_TIMEOUT,
-      }
+      },
     );
 
-    if (!response.data?.models || !Array.isArray(response.data.models)) {
+    if (
+      response.data?.object !== "list" ||
+      !Array.isArray(response.data.data)
+    ) {
       throw new NanogptApiError(
-        'Invalid API response: missing or invalid models array',
+        "Invalid API response: expected object='list' with data array",
         response.status,
-        'INVALID_RESPONSE'
+        "INVALID_RESPONSE",
       );
     }
 
-    return response.data.models.map(transformApiModel);
+    return response.data.data.map(transformApiModel);
   } catch (error) {
     if (error instanceof NanogptApiError) {
       throw error;
@@ -85,62 +89,65 @@ export async function fetchModels(apiKey: string): Promise<NanogptModel[]> {
 
         if (status === 401) {
           throw new NanogptApiError(
-            'Authentication failed: Invalid API key',
+            "Authentication failed: Invalid API key",
             status,
-            'AUTH_ERROR'
+            "AUTH_ERROR",
           );
         }
 
         if (status === 429) {
           throw new NanogptApiError(
-            'Rate limit exceeded: Too many requests',
+            "Rate limit exceeded: Too many requests",
             status,
-            'RATE_LIMIT'
+            "RATE_LIMIT",
           );
         }
 
         if (status >= 500) {
           throw new NanogptApiError(
-            'NanoGPT API server error: Please try again later',
+            "NanoGPT API server error: Please try again later",
             status,
-            'SERVER_ERROR'
+            "SERVER_ERROR",
           );
         }
 
         throw new NanogptApiError(
           `API request failed: ${axiosError.message}`,
           status,
-          'REQUEST_FAILED'
+          "REQUEST_FAILED",
         );
       }
 
-      if (axiosError.code === 'ECONNABORTED') {
+      if (axiosError.code === "ECONNABORTED") {
         throw new NanogptApiError(
-          'Request timeout: API did not respond in time',
+          "Request timeout: API did not respond in time",
           undefined,
-          'TIMEOUT'
+          "TIMEOUT",
         );
       }
 
-      if (axiosError.code === 'ENOTFOUND' || axiosError.code === 'ECONNREFUSED') {
+      if (
+        axiosError.code === "ENOTFOUND" ||
+        axiosError.code === "ECONNREFUSED"
+      ) {
         throw new NanogptApiError(
-          'Network error: Unable to connect to NanoGPT API',
+          "Network error: Unable to connect to NanoGPT API",
           undefined,
-          'NETWORK_ERROR'
+          "NETWORK_ERROR",
         );
       }
 
       throw new NanogptApiError(
         `Network error: ${axiosError.message}`,
         undefined,
-        'NETWORK_ERROR'
+        "NETWORK_ERROR",
       );
     }
 
     throw new NanogptApiError(
-      `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `Unexpected error: ${error instanceof Error ? error.message : "Unknown error"}`,
       undefined,
-      'UNKNOWN_ERROR'
+      "UNKNOWN_ERROR",
     );
   }
 }
@@ -153,7 +160,8 @@ export async function fetchModels(apiKey: string): Promise<NanogptModel[]> {
  */
 export function transformApiModel(apiModel: ApiModel): NanogptModel {
   const contextLength = apiModel.context_length ?? 128000;
-  const maxOutputTokens = apiModel.max_output_tokens ?? Math.min(contextLength, 128000);
+  const maxOutputTokens =
+    apiModel.max_output_tokens ?? Math.min(contextLength, 128000);
 
   const model: NanogptModel = {
     id: apiModel.id,
@@ -165,14 +173,14 @@ export function transformApiModel(apiModel: ApiModel): NanogptModel {
     temperature: true,
     tool_call: true,
     modalities: {
-      input: apiModel.capabilities?.vision ? ['text', 'image'] : ['text'],
-      output: ['text'],
+      input: apiModel.capabilities?.vision ? ["text", "image"] : ["text"],
+      output: ["text"],
     },
   };
 
   if (apiModel.capabilities?.reasoning) {
     model.reasoning = true;
-    model.interleaved = { field: 'reasoning_content' };
+    model.interleaved = { field: "reasoning_content" };
   }
 
   if (apiModel.pricing) {
@@ -183,7 +191,9 @@ export function transformApiModel(apiModel: ApiModel): NanogptModel {
   }
 
   if (apiModel.created) {
-    model.release_date = new Date(apiModel.created * 1000).toISOString().split('T')[0];
+    model.release_date = new Date(apiModel.created * 1000)
+      .toISOString()
+      .split("T")[0];
   }
 
   return model;
@@ -201,7 +211,7 @@ export function transformApiModel(apiModel: ApiModel): NanogptModel {
 export async function updateModelsFromApi(
   configManager: ConfigManager,
   filePath: string,
-  apiKey: string
+  apiKey: string,
 ): Promise<void> {
   const models = await fetchModels(apiKey);
 
